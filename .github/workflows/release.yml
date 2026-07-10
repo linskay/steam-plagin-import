@@ -1,0 +1,41 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Compile Steam Epic Sync
+      run: |
+        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs
+      shell: powershell
+
+    - name: Package Release Files
+      run: |
+        Compress-Archive -Path SteamEpicSync.exe, MainWindow.xaml -DestinationPath SteamEpicSync.zip -Force
+      shell: powershell
+
+    - name: Create or Update Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
+        name: ${{ github.ref_type == 'tag' && github.ref_name || 'Latest Auto-Build' }}
+        draft: false
+        prerelease: false
+        files: |
+          SteamEpicSync.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
