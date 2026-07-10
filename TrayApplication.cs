@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
@@ -19,6 +21,9 @@ public class TrayApplication : ApplicationContext
     private Func<bool> checkStartupStatus;
     private Action<bool> toggleStartupStatus;
 
+    private System.Threading.Timer steamMonitorTimer;
+    private int checkFailCount = 0;
+
     public TrayApplication(
         string exePath, 
         Action onSync, 
@@ -33,6 +38,9 @@ public class TrayApplication : ApplicationContext
         toggleStartupStatus = toggleStartup;
 
         InitializeTray();
+
+        // Start checking if Steam is running every 5 seconds
+        steamMonitorTimer = new System.Threading.Timer(CheckSteamProcess, null, 5000, 5000);
     }
 
     private void InitializeTray()
@@ -120,8 +128,45 @@ public class TrayApplication : ApplicationContext
         }
     }
 
+    private void CheckSteamProcess(object state)
+    {
+        try
+        {
+            var steamProcesses = Process.GetProcessesByName("steam");
+            if (steamProcesses.Length == 0)
+            {
+                checkFailCount++;
+                // If Steam is missing for 6 consecutive checks (30 seconds), exit
+                if (checkFailCount >= 6)
+                {
+                    if (notifyIcon != null && notifyIcon.ContextMenuStrip != null && notifyIcon.ContextMenuStrip.InvokeRequired)
+                    {
+                        notifyIcon.ContextMenuStrip.Invoke(new MethodInvoker(Exit));
+                    }
+                    else
+                    {
+                        Exit();
+                    }
+                }
+            }
+            else
+            {
+                checkFailCount = 0;
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
     private void Exit()
     {
+        if (steamMonitorTimer != null)
+        {
+            steamMonitorTimer.Dispose();
+            steamMonitorTimer = null;
+        }
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
         Application.Exit();

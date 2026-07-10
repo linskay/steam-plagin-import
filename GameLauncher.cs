@@ -14,7 +14,42 @@ public class GameLauncher
 
         if (game == null)
         {
-            Console.WriteLine("Game '" + appName + "' not found in Epic Games library.");
+            // The game is not installed locally. Check if we can find it in the online account library cache
+            var epicApi = new EpicApiManager();
+            var library = epicApi.FetchLibrary();
+            game = library.Find(g => g.AppName.Equals(appName, StringComparison.OrdinalIgnoreCase));
+
+            if (game == null)
+            {
+                Console.WriteLine("Game '" + appName + "' not found in Epic Games library.");
+                return;
+            }
+
+            Console.WriteLine(game.DisplayName + " is not installed. Launching installation in Epic Games Store...");
+            
+            // Construct the EGS installation/launch URI
+            string installUri = "";
+            if (!string.IsNullOrEmpty(game.CatalogNamespace) && !string.IsNullOrEmpty(game.CatalogItemId))
+            {
+                installUri = string.Format("com.epicgames.launcher://apps/{0}%3A{1}%3A{2}?action=launch",
+                    Uri.EscapeDataString(game.CatalogNamespace),
+                    Uri.EscapeDataString(game.CatalogItemId),
+                    Uri.EscapeDataString(game.AppName));
+            }
+            else
+            {
+                installUri = string.Format("com.epicgames.launcher://apps/{0}?action=launch",
+                    Uri.EscapeDataString(game.AppName));
+            }
+
+            try
+            {
+                Process.Start(installUri);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to launch installation URI: " + ex.Message);
+            }
             return;
         }
 

@@ -13,6 +13,7 @@ public class EpicGame
     public string AppName { get; set; }
     public string CatalogNamespace { get; set; }
     public string CatalogItemId { get; set; }
+    public bool IsInstalled { get; set; }
 }
 
 public class Crc32
@@ -78,7 +79,8 @@ public class EpicSyncManager
                     LaunchExecutable = launchExecutable,
                     AppName = ExtractJsonString(json, "AppName"),
                     CatalogNamespace = ExtractJsonString(json, "CatalogNamespace"),
-                    CatalogItemId = ExtractJsonString(json, "CatalogItemId")
+                    CatalogItemId = ExtractJsonString(json, "CatalogItemId"),
+                    IsInstalled = true
                 };
 
                 if (!string.IsNullOrEmpty(game.DisplayName) && !string.IsNullOrEmpty(game.AppName))
@@ -164,7 +166,7 @@ public class EpicSyncManager
         return "";
     }
 
-    public static string Sync(string currentExePath, List<EpicGame> installedGames, out int addedCount, out int removedCount)
+    public static string Sync(string currentExePath, List<EpicGame> epicGames, out int addedCount, out int removedCount)
     {
         addedCount = 0;
         removedCount = 0;
@@ -191,7 +193,7 @@ public class EpicSyncManager
             string shortcutsFile = Path.Combine(userDir, @"config\shortcuts.vdf");
             var shortcuts = VdfParser.ReadShortcuts(shortcutsFile);
 
-            // 1. Identify and remove any Epic shortcuts that are no longer installed
+            // 1. Identify and remove any Epic shortcuts that are no longer in our EGS library
             var finalShortcuts = new List<SteamShortcut>();
             foreach (var s in shortcuts)
             {
@@ -201,8 +203,8 @@ public class EpicSyncManager
                 if (isManagedByUs)
                 {
                     string appNameArg = s.LaunchOptions.Substring("--launch ".Length).Trim('\"', ' ');
-                    bool stillInstalled = installedGames.Exists(g => g.AppName.Equals(appNameArg, StringComparison.OrdinalIgnoreCase));
-                    if (!stillInstalled)
+                    bool stillExists = epicGames.Exists(g => g.AppName.Equals(appNameArg, StringComparison.OrdinalIgnoreCase));
+                    if (!stillExists)
                     {
                         removedCount++;
                         continue; // Skip, which removes it
@@ -211,8 +213,8 @@ public class EpicSyncManager
                 finalShortcuts.Add(s);
             }
 
-            // 2. Add or update installed Epic games
-            foreach (var game in installedGames)
+            // 2. Add or update Epic games in Steam
+            foreach (var game in epicGames)
             {
                 string launchArgs = "--launch \"" + game.AppName + "\"";
                 
@@ -221,7 +223,11 @@ public class EpicSyncManager
                     s.Exe.Equals(quotedCurrentExe, StringComparison.OrdinalIgnoreCase) &&
                     s.LaunchOptions.Equals(launchArgs, StringComparison.OrdinalIgnoreCase));
 
-                string gameIcon = Path.Combine(game.InstallLocation, game.LaunchExecutable.Replace('/', '\\'));
+                string gameIcon = "";
+                if (game.IsInstalled && !string.IsNullOrEmpty(game.InstallLocation) && !string.IsNullOrEmpty(game.LaunchExecutable))
+                {
+                    gameIcon = Path.Combine(game.InstallLocation, game.LaunchExecutable.Replace('/', '\\'));
+                }
 
                 int appid = CalculateAppId(quotedCurrentExe, game.DisplayName);
 
@@ -260,7 +266,7 @@ public class EpicSyncManager
             try
             {
                 VdfParser.WriteShortcuts(shortcutsFile, finalShortcuts);
-                sb.AppendLine("Synced " + installedGames.Count + " games for user ID " + userId);
+                sb.AppendLine("Synced " + epicGames.Count + " games for user ID " + userId);
             }
             catch (Exception ex)
             {

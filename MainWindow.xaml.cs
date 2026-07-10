@@ -19,6 +19,10 @@ public class MainWindowController
     private CheckBox closeEgsChk;
     private ListBox gamesListBox;
     private TextBlock statusTxt;
+
+    private Button epicLoginBtn;
+    private TextBlock epicStatusTxt;
+    private EpicApiManager epicApi;
     
     private string currentExePath;
     private bool hasShownTrayMessage = false;
@@ -26,6 +30,7 @@ public class MainWindowController
     public MainWindowController(string exePath)
     {
         currentExePath = exePath;
+        epicApi = new EpicApiManager();
         LoadXaml();
         BindEvents();
         RefreshData();
@@ -107,14 +112,123 @@ public class MainWindowController
                 Program.SetCloseEgsSetting(closeEgsChk.IsChecked ?? true);
             };
         }
+
+        epicLoginBtn = (Button)Window.FindName("EpicLoginBtn");
+        epicStatusTxt = (TextBlock)Window.FindName("EpicStatusTxt");
+        UpdateEpicAccountStatus();
+
+        if (epicLoginBtn != null)
+        {
+            epicLoginBtn.Click += (s, e) =>
+            {
+                if (epicApi.IsLoggedIn)
+                {
+                    epicApi.Logout();
+                    UpdateEpicAccountStatus();
+                    RefreshData();
+                }
+                else
+                {
+                    var loginWin = new LoginWindow();
+                    loginWin.Owner = Window;
+                    if (loginWin.ShowDialog() == true && !string.IsNullOrEmpty(loginWin.AuthorizationCode))
+                    {
+                        statusTxt.Text = "Подключение к Epic Games...";
+                        
+                        // Perform API login asynchronously or synchronously since it's quick
+                        bool success = false;
+                        try
+                        {
+                            success = epicApi.LoginWithCode(loginWin.AuthorizationCode);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(Window, "Ошибка соединения: " + ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+
+                        if (success)
+                        {
+                            UpdateEpicAccountStatus();
+                            RefreshData();
+                        }
+                        else
+                        {
+                            MessageBox.Show(Window, "Не удалось подключиться к аккаунту Epic Games.", "Ошибка авторизации", MessageBoxButton.OK, MessageBoxImage.Error);
+                            statusTxt.Text = "Ошибка входа в Epic Games";
+                        }
+                    }
+                }
+            };
+        }
+    }
+
+    private void UpdateEpicAccountStatus()
+    {
+        if (epicApi != null && epicStatusTxt != null && epicLoginBtn != null)
+        {
+            if (epicApi.IsLoggedIn)
+            {
+                epicStatusTxt.Text = string.Format("Подключен:\n{0}", epicApi.DisplayName);
+                epicStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(0, 200, 83));
+                epicLoginBtn.Content = "Выйти из аккаунта";
+            }
+            else
+            {
+                epicStatusTxt.Text = "Статус: Не авторизован";
+                epicStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(160, 165, 181));
+                epicLoginBtn.Content = "Подключить аккаунт";
+            }
+        }
+    }
+
+    private List<EpicGame> GetCombinedGamesList()
+    {
+        var games = new List<EpicGame>();
+        var installed = EpicSyncManager.FindInstalledGames();
+        games.AddRange(installed);
+
+        if (epicApi != null && epicApi.IsLoggedIn)
+        {
+            try
+            {
+                var remote = epicApi.FetchLibrary();
+                foreach (var rg in remote)
+                {
+                    bool isInstalled = false;
+                    foreach (var ig in installed)
+                    {
+                        if (ig.AppName.Equals(rg.AppName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isInstalled = true;
+                            break;
+                        }
+                    }
+                    if (!isInstalled)
+                    {
+                        games.Add(rg);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error getting remote library: " + ex.Message);
+            }
+        }
+        return games;
     }
 
     public void RefreshData()
     {
         try
         {
-            var games = EpicSyncManager.FindInstalledGames();
-            statusTxt.Text = "Найдено установленных игр: " + games.Count;
+            var games = GetCombinedGamesList();
+            int installedCount = 0;
+            foreach (var g in games)
+            {
+                if (g.IsInstalled) installedCount++;
+            }
+            
+            statusTxt.Text = string.Format("Игр в библиотеке: {0} (Установлено: {1})", games.Count, installedCount);
 
             gamesListBox.Items.Clear();
             foreach (var game in games)
@@ -135,28 +249,31 @@ public class MainWindowController
                 };
 
                 var img = new Image { Width = 24, Height = 24 };
-                string iconPath = Path.Combine(game.InstallLocation, game.LaunchExecutable.Replace('/', '\\'));
-                if (File.Exists(iconPath))
+                if (game.IsInstalled && !string.IsNullOrEmpty(game.InstallLocation) && !string.IsNullOrEmpty(game.LaunchExecutable))
                 {
-                    try
+                    string iconPath = Path.Combine(game.InstallLocation, game.LaunchExecutable.Replace('/', '\\'));
+                    if (File.Exists(iconPath))
                     {
-                        using (var sysIcon = System.Drawing.Icon.ExtractAssociatedIcon(iconPath))
-                        using (var bmp = sysIcon.ToBitmap())
+                        try
                         {
-                            var stream = new MemoryStream();
-                            bmp.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
-                            stream.Position = 0;
-                            var bitmapImage = new BitmapImage();
-                            bitmapImage.BeginInit();
-                            bitmapImage.StreamSource = stream;
-                            bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                            bitmapImage.EndInit();
-                            img.Source = bitmapImage;
+                            using (var sysIcon = System.Drawing.Icon.ExtractAssociatedIcon(iconPath))
+                            using (var bmp = sysIcon.ToBitmap())
+                            {
+                                var stream = new MemoryStream();
+                                bmp.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+                                stream.Position = 0;
+                                var bitmapImage = new BitmapImage();
+                                bitmapImage.BeginInit();
+                                bitmapImage.StreamSource = stream;
+                                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                                bitmapImage.EndInit();
+                                img.Source = bitmapImage;
+                            }
                         }
-                    }
-                    catch
-                    {
-                        // Fallback to null (empty icon)
+                        catch
+                        {
+                            // Fallback to null (empty icon)
+                        }
                     }
                 }
                 imgBorder.Child = img;
@@ -174,7 +291,7 @@ public class MainWindowController
                 };
                 var dirTxt = new TextBlock
                 {
-                    Text = game.InstallLocation,
+                    Text = game.IsInstalled ? game.InstallLocation : "Требуется загрузка перед запуском",
                     Foreground = new SolidColorBrush(Color.FromRgb(108, 114, 129)),
                     FontSize = 10,
                     Margin = new Thickness(0, 2, 0, 0),
@@ -186,23 +303,48 @@ public class MainWindowController
                 grid.Children.Add(infoStack);
 
                 // Status Badge
-                var statusLabel = new Border
+                Border statusLabel;
+                if (game.IsInstalled)
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(20, 0, 200, 83)),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(100, 0, 200, 83)),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(4),
-                    Padding = new Thickness(8, 4, 8, 4),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                var statusLabelText = new TextBlock
+                    statusLabel = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(20, 0, 200, 83)),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(100, 0, 200, 83)),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(4),
+                        Padding = new Thickness(8, 4, 8, 4),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    var statusLabelText = new TextBlock
+                    {
+                        Text = "Установлена",
+                        Foreground = new SolidColorBrush(Color.FromRgb(0, 200, 83)),
+                        FontSize = 10,
+                        FontWeight = FontWeights.Bold
+                    };
+                    statusLabel.Child = statusLabelText;
+                }
+                else
                 {
-                    Text = "Готова к импорту",
-                    Foreground = new SolidColorBrush(Color.FromRgb(0, 200, 83)),
-                    FontSize = 10,
-                    FontWeight = FontWeights.Bold
-                };
-                statusLabel.Child = statusLabelText;
+                    statusLabel = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(20, 30, 136, 229)),
+                        BorderBrush = new SolidColorBrush(Color.FromArgb(100, 30, 136, 229)),
+                        BorderThickness = new Thickness(1),
+                        CornerRadius = new CornerRadius(4),
+                        Padding = new Thickness(8, 4, 8, 4),
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+                    var statusLabelText = new TextBlock
+                    {
+                        Text = "Облако (EGS)",
+                        Foreground = new SolidColorBrush(Color.FromRgb(30, 136, 229)),
+                        FontSize = 10,
+                        FontWeight = FontWeights.Bold
+                    };
+                    statusLabel.Child = statusLabelText;
+                }
+                
                 Grid.SetColumn(statusLabel, 2);
                 grid.Children.Add(statusLabel);
 
@@ -234,7 +376,7 @@ public class MainWindowController
         {
             try
             {
-                var games = EpicSyncManager.FindInstalledGames();
+                var games = GetCombinedGamesList();
                 int added, removed;
                 string res = EpicSyncManager.Sync(currentExePath, games, out added, out removed);
 

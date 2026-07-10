@@ -20,7 +20,7 @@ jobs:
 
     - name: Compile Steam Epic Sync
       run: |
-        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs
+        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs
       shell: powershell
 
     - name: Package Release Files
