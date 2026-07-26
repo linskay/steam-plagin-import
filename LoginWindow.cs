@@ -18,6 +18,27 @@ public class LoginWindow : Window
 
         webBrowser = new WebBrowser();
         webBrowser.Navigating += WebBrowser_Navigating;
+        
+        // Suppress script error popups
+        webBrowser.Navigated += (s, e) =>
+        {
+            try
+            {
+                var fi = typeof(WebBrowser).GetField("_axIWebBrowser2", 
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                if (fi != null)
+                {
+                    object axIWebBrowser2 = fi.GetValue(webBrowser);
+                    if (axIWebBrowser2 != null)
+                    {
+                        axIWebBrowser2.GetType().InvokeMember("Silent", 
+                            System.Reflection.BindingFlags.SetProperty, null, axIWebBrowser2, new object[] { true });
+                    }
+                }
+            }
+            catch { }
+        };
+
         Content = webBrowser;
 
         // Force navigating to Epic login page
