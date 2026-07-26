@@ -19,6 +19,8 @@ public static class Program
         exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
         SetBrowserEmulationKey();
 
+        bool isAutorun = false;
+
         // Parse command line arguments
         if (args.Length > 0)
         {
@@ -92,6 +94,10 @@ public static class Program
                 }
                 return;
             }
+            else if (args[0].Equals("--autorun", StringComparison.OrdinalIgnoreCase))
+            {
+                isAutorun = true;
+            }
         }
 
         // GUI/Tray mode: Check for duplicate instance
@@ -104,6 +110,16 @@ public static class Program
             return;
         }
 
+        bool firstLaunch = false;
+        if (!isAutorun)
+        {
+            firstLaunch = IsFirstLaunch();
+            if (firstLaunch)
+            {
+                SetFirstLaunchCompleted();
+            }
+        }
+
         // Default: Start System Tray Application
         trayApp = new TrayApplication(
             exePath,
@@ -113,6 +129,11 @@ public static class Program
             SetRunOnStartup
         );
 
+        if (firstLaunch)
+        {
+            ShowDashboard();
+        }
+
         // Run initial silent sync in background
         System.Threading.ThreadPool.QueueUserWorkItem(_ =>
         {
@@ -121,7 +142,7 @@ public static class Program
                 var games = EpicSyncManager.FindInstalledGames();
                 int added, removed;
                 EpicSyncManager.Sync(exePath, games, out added, out removed);
-                if (added > 0 || removed > 0)
+                if ((added > 0 || removed > 0) && !firstLaunch)
                 {
                     ShowTrayBalloon("Авто-синхронизация", 
                         string.Format("Библиотека синхронизирована. Добавлено: {0}, Удалено: {1}.\nПожалуйста, перезапустите Steam.", added, removed),
@@ -228,7 +249,7 @@ public static class Program
                 {
                     if (enable)
                     {
-                        key.SetValue("SteamEpicSync", "\"" + exePath + "\"");
+                        key.SetValue("SteamEpicSync", "\"" + exePath + "\" --autorun");
                     }
                     else
                     {
@@ -267,6 +288,41 @@ public static class Program
                 if (key != null)
                 {
                     key.SetValue("CloseEgs", enable ? 1 : 0);
+                }
+            }
+        }
+        catch { }
+    }
+
+    private static bool IsFirstLaunch()
+    {
+        try
+        {
+            using (var key = Registry.CurrentUser.OpenSubKey(@"Software\SteamEpicSync"))
+            {
+                if (key != null)
+                {
+                    var val = key.GetValue("FirstLaunchCompleted");
+                    if (val != null)
+                    {
+                        return Convert.ToInt32(val) == 0;
+                    }
+                }
+            }
+        }
+        catch { }
+        return true;
+    }
+
+    private static void SetFirstLaunchCompleted()
+    {
+        try
+        {
+            using (var key = Registry.CurrentUser.CreateSubKey(@"Software\SteamEpicSync"))
+            {
+                if (key != null)
+                {
+                    key.SetValue("FirstLaunchCompleted", 1, RegistryValueKind.DWord);
                 }
             }
         }
