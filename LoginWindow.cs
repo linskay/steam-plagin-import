@@ -1,65 +1,215 @@
 using System;
+using System.Diagnostics;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Navigation;
+using System.Windows.Input;
+using System.Windows.Media;
 
 public class LoginWindow : Window
 {
-    private WebBrowser webBrowser;
     public string AuthorizationCode { get; private set; }
+    private TextBox codeTextBox;
+    private string loginUrl;
 
     public LoginWindow()
     {
-        Title = "Вход в аккаунт Epic Games";
-        Width = 520;
-        Height = 680;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        Title = "Подключение Epic Games";
+        Width = 480;
+        Height = 360;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
+        WindowStyle = WindowStyle.None;
+        AllowsTransparency = true;
+        Background = Brushes.Transparent;
 
-        webBrowser = new WebBrowser();
-        webBrowser.Navigating += WebBrowser_Navigating;
-        
-        // Suppress script error popups
-        webBrowser.Navigated += (s, e) =>
+        loginUrl = EpicApiManager.GetLoginUrl();
+
+        // Create main layout
+        var border = new Border
         {
-            try
-            {
-                var fi = typeof(WebBrowser).GetField("_axIWebBrowser2", 
-                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                if (fi != null)
-                {
-                    object axIWebBrowser2 = fi.GetValue(webBrowser);
-                    if (axIWebBrowser2 != null)
-                    {
-                        axIWebBrowser2.GetType().InvokeMember("Silent", 
-                            System.Reflection.BindingFlags.SetProperty, null, axIWebBrowser2, new object[] { true });
-                    }
-                }
-            }
-            catch { }
+            CornerRadius = new CornerRadius(12),
+            Background = new SolidColorBrush(Color.FromRgb(0x12, 0x13, 0x1A)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x22, 0x24, 0x30)),
+            BorderThickness = new Thickness(1.5),
+            Padding = new Thickness(25)
         };
 
-        Content = webBrowser;
+        var mainGrid = new Grid();
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Title
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) }); // Info & Input
+        mainGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Buttons
 
-        // Force navigating to Epic login page
-        webBrowser.Navigate(EpicApiManager.GetLoginUrl());
+        // 1. Title Bar
+        var titleTxt = new TextBlock
+        {
+            Text = "ПОДКЛЮЧЕНИЕ EPIC GAMES",
+            Foreground = new SolidColorBrush(Color.FromRgb(0x00, 0xC8, 0x53)),
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(0, 0, 0, 15)
+        };
+        Grid.SetRow(titleTxt, 0);
+        mainGrid.Children.Add(titleTxt);
+
+        // 2. Info / Content
+        var contentStack = new StackPanel { Margin = new Thickness(0, 0, 0, 15) };
+        
+        var descTxt1 = new TextBlock
+        {
+            Text = "1. Мы открыли страницу входа Epic Games в вашем браузере по умолчанию.",
+            Foreground = Brushes.White,
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        contentStack.Children.Add(descTxt1);
+
+        var descTxt2 = new TextBlock
+        {
+            Text = "2. Войдите в свой аккаунт. После этого вас перенаправит на пустую страницу.",
+            Foreground = Brushes.White,
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        contentStack.Children.Add(descTxt2);
+
+        var descTxt3 = new TextBlock
+        {
+            Text = "3. Скопируйте всю адресную строку из браузера (или значение параметра code=...) и вставьте в поле ниже:",
+            Foreground = Brushes.White,
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        contentStack.Children.Add(descTxt3);
+
+        // Manual open link button
+        var openBrowserBtn = new Button
+        {
+            Content = "Открыть страницу авторизации повторно",
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2C, 0x38)),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3F, 0x42, 0x57)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(10, 6, 10, 6),
+            Cursor = Cursors.Hand,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 0, 0, 15)
+        };
+        openBrowserBtn.Click += (s, e) => OpenAuthUrl();
+        contentStack.Children.Add(openBrowserBtn);
+
+        // Textbox wrapper
+        var tbBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(0x16, 0x18, 0x22)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x22, 0x24, 0x30)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(10, 8, 10, 8)
+        };
+
+        codeTextBox = new TextBox
+        {
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Foreground = Brushes.White,
+            FontSize = 12,
+            CaretBrush = Brushes.White
+        };
+        tbBorder.Child = codeTextBox;
+        contentStack.Children.Add(tbBorder);
+
+        Grid.SetRow(contentStack, 1);
+        mainGrid.Children.Add(contentStack);
+
+        // 3. Actions (Buttons)
+        var btnStack = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        var cancelBtn = new Button
+        {
+            Content = "Отмена",
+            Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2C, 0x38)),
+            Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0x3F, 0x42, 0x57)),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(15, 8, 15, 8),
+            Margin = new Thickness(0, 0, 10, 0),
+            Cursor = Cursors.Hand
+        };
+        cancelBtn.Click += (s, e) => { DialogResult = false; Close(); };
+        btnStack.Children.Add(cancelBtn);
+
+        var loginBtn = new Button
+        {
+            Content = "Войти",
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x88, 0xE5)),
+            Foreground = Brushes.White,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(25, 8, 25, 8),
+            FontWeight = FontWeights.SemiBold,
+            Cursor = Cursors.Hand
+        };
+        loginBtn.Click += (s, e) => ConfirmLogin();
+        btnStack.Children.Add(loginBtn);
+
+        Grid.SetRow(btnStack, 2);
+        mainGrid.Children.Add(btnStack);
+
+        border.Child = mainGrid;
+        Content = border;
+
+        // Auto open auth URL on load
+        Loaded += (s, e) => OpenAuthUrl();
     }
 
-    private void WebBrowser_Navigating(object sender, NavigatingCancelEventArgs e)
+    private void OpenAuthUrl()
     {
-        if (e.Uri == null) return;
-
-        string url = e.Uri.ToString();
-        if (url.Contains("https://www.epicgames.com/id/api/redirect"))
+        try
         {
-            var query = e.Uri.Query;
-            var match = System.Text.RegularExpressions.Regex.Match(query, "[?&]code=([^&]+)");
-            if (match.Success)
+            Process.Start(new ProcessStartInfo
             {
-                AuthorizationCode = match.Groups[1].Value;
-                DialogResult = true;
-                Close();
-            }
+                FileName = loginUrl,
+                UseShellExecute = true
+            });
         }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Не удалось открыть браузер: " + ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ConfirmLogin()
+    {
+        string input = codeTextBox.Text.Trim();
+        if (string.IsNullOrEmpty(input))
+        {
+            MessageBox.Show(this, "Пожалуйста, вставьте скопированную ссылку или код авторизации.", "Внимание", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Try to extract code from URL
+        string code = input;
+        var match = Regex.Match(input, "[?&]code=([^&]+)");
+        if (match.Success)
+        {
+            code = match.Groups[1].Value;
+        }
+
+        if (code.Length < 10)
+        {
+            MessageBox.Show(this, "Похоже, код введен неверно. Пожалуйста, скопируйте всю адресную строку страницы перенаправления.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        AuthorizationCode = code;
+        DialogResult = true;
+        Close();
     }
 }
