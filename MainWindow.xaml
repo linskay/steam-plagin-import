@@ -153,7 +153,7 @@
             </Grid>
 
             <!-- 2. Hero Section (Gradient Banner) -->
-            <Grid Grid.Row="1" Background="#161822" Margin="0,0,0,1">
+            <Grid Grid.Row="1" Margin="0,0,0,1">
                 <Grid.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#161822" Offset="0.0"/>
