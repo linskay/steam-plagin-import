@@ -29,7 +29,7 @@ public class EpicApiManager
     public static string GetLoginUrl()
     {
         return string.Format(
-            "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D{0}%26responseType%3Dcode",
+            "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3Fclient_id%3D{0}%26response_type%3Dcode",
             ClientId
         );
     }
