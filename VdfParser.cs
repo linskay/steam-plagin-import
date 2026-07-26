@@ -130,7 +130,9 @@ public class VdfParser
             if (type == 0x08)
                 break;
 
+            if (pos >= bytes.Length) break;
             string key = ReadNullTerminatedString(bytes, ref pos);
+            
             if (type == 0x01)
             {
                 string val = ReadNullTerminatedString(bytes, ref pos);
@@ -145,9 +147,23 @@ public class VdfParser
                     dict[key] = val;
                 }
             }
+            else if (type == 0x07)
+            {
+                if (pos + 8 <= bytes.Length)
+                {
+                    long val = BitConverter.ToInt64(bytes, pos);
+                    pos += 8;
+                    dict[key] = val;
+                }
+            }
             else if (type == 0x00)
             {
                 dict[key] = ReadMapContent(bytes, ref pos);
+            }
+            else
+            {
+                // Unrecognized type. Since we don't know the length, we must stop parsing to avoid reading garbage.
+                break;
             }
         }
         return dict;
@@ -155,6 +171,7 @@ public class VdfParser
 
     private static string ReadNullTerminatedString(byte[] bytes, ref int pos)
     {
+        if (pos >= bytes.Length) return "";
         int start = pos;
         while (pos < bytes.Length && bytes[pos] != 0)
         {
@@ -211,6 +228,13 @@ public class VdfParser
             {
                 int val = (int)kvp.Value;
                 bw.Write((byte)0x02);
+                WriteNullTerminatedString(bw, kvp.Key);
+                bw.Write(val);
+            }
+            else if (kvp.Value is long)
+            {
+                long val = (long)kvp.Value;
+                bw.Write((byte)0x07);
                 WriteNullTerminatedString(bw, kvp.Key);
                 bw.Write(val);
             }

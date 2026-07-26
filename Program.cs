@@ -16,6 +16,7 @@ public static class Program
         Application.SetCompatibleTextRenderingDefault(false);
         
         exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+        SetBrowserEmulationKey();
 
         // Parse command line arguments
         if (args.Length > 0)
@@ -35,6 +36,59 @@ public static class Program
                 string log = EpicSyncManager.Sync(exePath, games, out added, out removed);
                 Console.WriteLine(log);
                 Console.WriteLine(string.Format("Sync complete. Added: {0}, Removed: {1}", added, removed));
+                return;
+            }
+            else if (args[0].Equals("--uninstall", StringComparison.OrdinalIgnoreCase))
+            {
+                var result = MessageBox.Show(
+                    "Вы действительно хотите удалить все импортированные ярлыки из Steam, убрать утилиту из автозагрузки Windows и полностью стереть все сохраненные настройки и кэши?",
+                    "Удаление Steam Epic Sync",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning
+                );
+
+                if (result == DialogResult.Yes)
+                {
+                    try
+                    {
+                        // 1. Disable startup
+                        SetRunOnStartup(false);
+
+                        // 2. Delete EGS closing settings from registry
+                        try
+                        {
+                            Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\SteamEpicSync", false);
+                        }
+                        catch {}
+
+                        // 3. Clear Steam shortcuts (pass empty list to delete all ours)
+                        int added, removed;
+                        EpicSyncManager.Sync(exePath, new System.Collections.Generic.List<EpicGame>(), out added, out removed);
+
+                        // 4. Delete local AppData folder
+                        string localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
+                        if (Directory.Exists(localAppDir))
+                        {
+                            Directory.Delete(localAppDir, true);
+                        }
+
+                        MessageBox.Show(
+                            string.Format("Все настройки, кэши и ярлыки Steam ({0} шт.) были успешно удалены.\n\nТеперь вы можете просто удалить файл SteamEpicSync.exe.", removed),
+                            "Удаление завершено",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(
+                            "Ошибка при удалении файлов: " + ex.Message,
+                            "Ошибка",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }
+                }
                 return;
             }
         }
@@ -202,6 +256,22 @@ public static class Program
                 if (key != null)
                 {
                     key.SetValue("CloseEgs", enable ? 1 : 0);
+                }
+            }
+        }
+        catch { }
+    }
+
+    private static void SetBrowserEmulationKey()
+    {
+        try
+        {
+            string fileName = Path.GetFileName(exePath);
+            using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"))
+            {
+                if (key != null)
+                {
+                    key.SetValue(fileName, 11001, RegistryValueKind.DWord);
                 }
             }
         }
