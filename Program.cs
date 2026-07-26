@@ -8,6 +8,7 @@ public static class Program
     private static TrayApplication trayApp;
     private static MainWindowController controller;
     private static string exePath;
+    private static System.Threading.Mutex appMutex;
 
     [STAThread]
     public static void Main(string[] args)
@@ -91,6 +92,16 @@ public static class Program
                 }
                 return;
             }
+        }
+
+        // GUI/Tray mode: Check for duplicate instance
+        bool createdNew;
+        appMutex = new System.Threading.Mutex(true, "SteamEpicSync_SingleInstanceMutex_TrayGUI", out createdNew);
+        if (!createdNew)
+        {
+            MessageBox.Show("Приложение Steam Epic Sync уже запущено и находится в системном трее (в правом нижнем углу экрана рядом с часами).", 
+                "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
         }
 
         // Default: Start System Tray Application
