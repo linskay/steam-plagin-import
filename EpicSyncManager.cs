@@ -242,7 +242,7 @@ public class EpicSyncManager
                     newShortcut.LaunchOptions = launchArgs;
                     newShortcut.AppId = appid;
                     
-                    newShortcut.Fields["AllowOverlay"] = 1;
+                    newShortcut.Fields["AllowOverlay"] = 0;
                     newShortcut.Fields["AllowDesktopConfig"] = 1;
                     
                     // Add "Epic Games" tag
@@ -259,6 +259,7 @@ public class EpicSyncManager
                     existing.Icon = gameIcon;
                     existing.AppId = appid;
                     existing.AppName = game.DisplayName;
+                    existing.Fields["AllowOverlay"] = 0;
                 }
             }
 
