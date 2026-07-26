@@ -166,7 +166,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel VerticalAlignment="Center" Margin="25,0,0,0">
-                    <TextBlock Text="ИНТЕГРАЦИЯ БИБЛИОТЕК" Foreground="#00C853" FontSize="11" FontWeight="Bold" LetterSpacing="1.5"/>
+                    <TextBlock Text="ИНТЕГРАЦИЯ БИБЛИОТЕК" Foreground="#00C853" FontSize="11" FontWeight="Bold"/>
                     <TextBlock Text="Epic Games ✕ Steam" Foreground="White" FontSize="24" FontWeight="Bold" Margin="0,2,0,0"/>
                     <TextBlock Text="Импортируйте игры Epic в Steam и экономьте ресурсы ПК" Foreground="#8A92A6" FontSize="12" Margin="0,4,0,0"/>
                 </StackPanel>
@@ -182,7 +182,7 @@
                 </Grid.ColumnDefinitions>
                 <!-- Left: Settings -->
                 <StackPanel Grid.Column="0" Margin="0,0,15,0">
-                    <TextBlock Text="НАСТРОЙКИ" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" LetterSpacing="1"/>
+                    <TextBlock Text="НАСТРОЙКИ" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,0,0,12"/>
                     
                     <Border Background="#161822" CornerRadius="8" Padding="15" BorderBrush="#222430" BorderThickness="1">
                         <StackPanel>
@@ -193,7 +193,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="АККАУНТ EPIC GAMES" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,15,0,10" LetterSpacing="1"/>
+                    <TextBlock Text="АККАУНТ EPIC GAMES" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,15,0,10"/>
                     <Border Background="#161822" CornerRadius="8" Padding="15" BorderBrush="#222430" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Name="EpicStatusTxt" Text="Статус: Не авторизован" Foreground="#A0A5B5" FontSize="11" Margin="0,0,0,10" TextWrapping="Wrap"/>
@@ -201,7 +201,7 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="ПОДДЕРЖКА И УДАЛЕНИЕ" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,15,0,10" LetterSpacing="1"/>
+                    <TextBlock Text="ПОДДЕРЖКА И УДАЛЕНИЕ" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,15,0,10"/>
                     <Border Background="#161822" CornerRadius="8" Padding="15" BorderBrush="#222430" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="Чтобы изменения отобразились в Steam, перезапустите клиент Steam после синхронизации." 
@@ -218,30 +218,32 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="ОБНАРУЖЕННЫЕ ИГРЫ EPIC GAMES" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,0,0,12" LetterSpacing="1"/>
+                    <TextBlock Grid.Row="0" Text="ОБНАРУЖЕННЫЕ ИГРЫ EPIC GAMES" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,0,0,12"/>
 
-                    <!-- Scrollable Games ListBox -->
-                    <ListBox Grid.Row="1" Name="GamesListBox" Background="#161822" BorderBrush="#222430" BorderThickness="1" 
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" Padding="5" CornerRadius="8">
-                        <ListBox.Resources>
-                            <!-- Remove default ListBoxItem styling -->
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent"/>
-                                <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Margin" Value="0,0,0,4"/>
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListBoxItem">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
-                                                <ContentPresenter />
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListBox.Resources>
-                    </ListBox>
+                    <!-- Scrollable Games ListBox wrapped in Border for CornerRadius -->
+                    <Border Grid.Row="1" Background="#161822" BorderBrush="#222430" BorderThickness="1" CornerRadius="8" ClipToBounds="True">
+                        <ListBox Name="GamesListBox" Background="Transparent" BorderThickness="0" 
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" Padding="5">
+                            <ListBox.Resources>
+                                <!-- Remove default ListBoxItem styling -->
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Margin" Value="0,0,0,4"/>
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                                    <ContentPresenter />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.Resources>
+                        </ListBox>
+                    </Border>
                 </Grid>
             </Grid>
 
