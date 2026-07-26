@@ -13,6 +13,13 @@ public static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Force software rendering mode in WPF to prevent NVIDIA overlay from hooking it as a game
+        try
+        {
+            System.Windows.Media.RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
+        }
+        catch { }
+
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         
