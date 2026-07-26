@@ -201,11 +201,12 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="ПОДДЕРЖКА" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,15,0,10" LetterSpacing="1"/>
+                    <TextBlock Text="ПОДДЕРЖКА И УДАЛЕНИЕ" Foreground="#8A92A6" FontSize="11" FontWeight="Bold" Margin="0,15,0,10" LetterSpacing="1"/>
                     <Border Background="#161822" CornerRadius="8" Padding="15" BorderBrush="#222430" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="Чтобы изменения отобразились в Steam, перезапустите клиент Steam после синхронизации." 
-                                       Foreground="#A0A5B5" FontSize="11" TextWrapping="Wrap" LineHeight="15"/>
+                                       Foreground="#A0A5B5" FontSize="11" TextWrapping="Wrap" LineHeight="15" Margin="0,0,0,10"/>
+                            <Button Name="UninstallBtn" Style="{StaticResource SecondaryButton}" Content="Полное удаление утилиты" Padding="10,6" FontSize="11" HorizontalAlignment="Stretch" Foreground="#FF6B6B" BorderBrush="#3D2424"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

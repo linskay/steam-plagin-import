@@ -20,12 +20,7 @@ jobs:
 
     - name: Compile Steam Epic Sync
       run: |
-        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs
-      shell: powershell
-
-    - name: Package Release Files
-      run: |
-        Compress-Archive -Path SteamEpicSync.exe, MainWindow.xaml -DestinationPath SteamEpicSync.zip -Force
+        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /resource:MainWindow.xaml Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs
       shell: powershell
 
     - name: Create or Update Release
@@ -36,6 +31,6 @@ jobs:
         draft: false
         prerelease: false
         files: |
-          SteamEpicSync.zip
+          SteamEpicSync.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

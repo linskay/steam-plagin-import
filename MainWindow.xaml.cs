@@ -23,6 +23,7 @@ public class MainWindowController
     private Button epicLoginBtn;
     private TextBlock epicStatusTxt;
     private EpicApiManager epicApi;
+    private Button uninstallBtn;
     
     private string currentExePath;
     private bool hasShownTrayMessage = false;
@@ -38,6 +39,30 @@ public class MainWindowController
 
     private void LoadXaml()
     {
+        var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+        string resourceName = null;
+        foreach (var name in assembly.GetManifestResourceNames())
+        {
+            if (name.Equals("MainWindow.xaml", StringComparison.OrdinalIgnoreCase))
+            {
+                resourceName = name;
+                break;
+            }
+        }
+
+        if (resourceName != null)
+        {
+            using (var stream = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (stream != null)
+                {
+                    Window = (Window)XamlReader.Load(stream);
+                    return;
+                }
+            }
+        }
+
+        // Fallback to disk file if resource not found
         string xamlPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MainWindow.xaml");
         if (!File.Exists(xamlPath))
         {
@@ -158,6 +183,15 @@ public class MainWindowController
                         }
                     }
                 }
+            };
+        }
+
+        uninstallBtn = (Button)Window.FindName("UninstallBtn");
+        if (uninstallBtn != null)
+        {
+            uninstallBtn.Click += (s, e) =>
+            {
+                TriggerUninstall();
             };
         }
     }
@@ -406,6 +440,65 @@ public class MainWindowController
         if (startupChk != null)
         {
             startupChk.IsChecked = Program.IsRunOnStartup();
+        }
+    }
+
+    public void TriggerUninstall()
+    {
+        var result = MessageBox.Show(
+            Window,
+            "Вы действительно хотите удалить все импортированные ярлыки из Steam, убрать утилиту из автозагрузки Windows и полностью стереть все сохраненные настройки и кэши?",
+            "Удаление Steam Epic Sync",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning
+        );
+
+        if (result == MessageBoxResult.Yes)
+        {
+            try
+            {
+                // 1. Disable startup
+                Program.SetRunOnStartup(false);
+
+                // 2. Delete EGS closing settings from registry
+                try
+                {
+                    Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\SteamEpicSync", false);
+                }
+                catch {}
+
+                // 3. Clear Steam shortcuts (pass empty list to delete all ours)
+                int added, removed;
+                EpicSyncManager.Sync(currentExePath, new List<EpicGame>(), out added, out removed);
+
+                // 4. Delete local AppData folder
+                string localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
+                if (Directory.Exists(localAppDir))
+                {
+                    Directory.Delete(localAppDir, true);
+                }
+
+                MessageBox.Show(
+                    Window,
+                    string.Format("Все настройки, кэши и ярлыки Steam ({0} шт.) были успешно удалены.\n\nТеперь вы можете просто удалить файл SteamEpicSync.exe.", removed),
+                    "Удаление завершено",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information
+                );
+
+                // Exit the entire application
+                Application.Current.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    Window,
+                    "Ошибка при удалении файлов: " + ex.Message,
+                    "Ошибка",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error
+                );
+            }
         }
     }
 }

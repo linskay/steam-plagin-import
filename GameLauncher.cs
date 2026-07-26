@@ -192,13 +192,21 @@ public class GameLauncher
     {
         if (processNames == null || processNames.Count == 0) return false;
         
-        var activeProcesses = Process.GetProcesses();
-        foreach (var p in activeProcesses)
+        foreach (var name in processNames)
         {
-            if (processNames.Contains(p.ProcessName))
+            try
             {
-                return true;
+                var processes = Process.GetProcessesByName(name);
+                if (processes.Length > 0)
+                {
+                    foreach (var p in processes)
+                    {
+                        p.Dispose();
+                    }
+                    return true;
+                }
             }
+            catch { }
         }
         return false;
     }

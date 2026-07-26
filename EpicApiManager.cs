@@ -320,7 +320,14 @@ public class EpicApiManager
                 AccessToken, RefreshToken, AccountId, DisplayName
             );
 
-            File.WriteAllText(CredentialsPath, json, Encoding.UTF8);
+            byte[] plaintextBytes = Encoding.UTF8.GetBytes(json);
+            byte[] encryptedBytes = System.Security.Cryptography.ProtectedData.Protect(
+                plaintextBytes,
+                null,
+                System.Security.Cryptography.DataProtectionScope.CurrentUser
+            );
+
+            File.WriteAllBytes(CredentialsPath, encryptedBytes);
         }
         catch (Exception ex)
         {
@@ -334,15 +341,39 @@ public class EpicApiManager
         {
             if (File.Exists(CredentialsPath))
             {
-                string json = File.ReadAllText(CredentialsPath, Encoding.UTF8);
-                AccessToken = ExtractJsonValue(json, "access_token");
-                RefreshToken = ExtractJsonValue(json, "refresh_token");
-                AccountId = ExtractJsonValue(json, "account_id");
-                DisplayName = ExtractJsonValue(json, "displayName");
+                byte[] encryptedBytes = File.ReadAllBytes(CredentialsPath);
+                string json = null;
 
-                if (!string.IsNullOrEmpty(RefreshToken))
+                try
                 {
-                    IsLoggedIn = true;
+                    byte[] plaintextBytes = System.Security.Cryptography.ProtectedData.Unprotect(
+                        encryptedBytes,
+                        null,
+                        System.Security.Cryptography.DataProtectionScope.CurrentUser
+                    );
+                    json = Encoding.UTF8.GetString(plaintextBytes);
+                }
+                catch
+                {
+                    // Fallback to reading as plaintext in case it's an old unencrypted file
+                    try
+                    {
+                        json = Encoding.UTF8.GetString(encryptedBytes);
+                    }
+                    catch { }
+                }
+
+                if (!string.IsNullOrEmpty(json))
+                {
+                    AccessToken = ExtractJsonValue(json, "access_token");
+                    RefreshToken = ExtractJsonValue(json, "refresh_token");
+                    AccountId = ExtractJsonValue(json, "account_id");
+                    DisplayName = ExtractJsonValue(json, "displayName");
+
+                    if (!string.IsNullOrEmpty(RefreshToken))
+                    {
+                        IsLoggedIn = true;
+                    }
                 }
             }
         }

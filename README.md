@@ -28,11 +28,8 @@
 
 ## 📦 Установка и использование
 
-> [!IMPORTANT]
-> Для корректной работы программы файлы `SteamEpicSync.exe` и `MainWindow.xaml` должны находиться в одной папке. Всегда скачивайте архив целиком.
-
-1. Перейдите в раздел **[Releases](https://github.com/linskay/steam-plagin-import/releases/latest)** и скачайте архив `SteamEpicSync.zip`.
-2. Распакуйте его в любую постоянную папку на компьютере.
+1. Перейдите в раздел **[Releases](https://github.com/linskay/steam-plagin-import/releases/latest)** и скачайте файл `SteamEpicSync.exe`.
+2. Поместите его в любую удобную папку на вашем компьютере.
 3. Запустите `SteamEpicSync.exe`.
 4. Нажмите кнопку **Синхронизировать сейчас** в интерфейсе панели (или выберите этот пункт в меню трея).
 5. Полностью перезапустите Steam. Игры из Epic Games Store появятся в вашей библиотеке Steam.
