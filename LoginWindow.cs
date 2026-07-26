@@ -194,13 +194,27 @@ public class LoginWindow : Window
             return;
         }
 
-        // Try to extract code from URL
+        // Try to extract code from JSON or URL
         string code = input;
-        var match = Regex.Match(input, "[?&]code=([^&]+)");
-        if (match.Success)
+        
+        // 1. Try to extract from JSON authorizationCode or exchangeCode field
+        var jsonMatch = Regex.Match(input, "\"authorizationCode\"\\s*:\\s*\"([a-zA-Z0-9]+)\"");
+        if (jsonMatch.Success)
         {
-            code = match.Groups[1].Value;
+            code = jsonMatch.Groups[1].Value;
         }
+        else
+        {
+            // 2. Try URL parameter code (ignoring quotes and other delimiters)
+            var urlMatch = Regex.Match(input, "[?&]code=([a-zA-Z0-9]+)");
+            if (urlMatch.Success)
+            {
+                code = urlMatch.Groups[1].Value;
+            }
+        }
+
+        // Clean up code from any surrounding quotes or spaces
+        code = code.Trim('"', '\'', ' ', '\t', '\r', '\n');
 
         if (code.Length < 10)
         {
