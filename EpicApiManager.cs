@@ -7,9 +7,9 @@ using System.Text.RegularExpressions;
 
 public class EpicApiManager
 {
-    private const string ClientId = "34a2bf34190e4a38b15d2a7f51c0903f";
-    private const string ClientSecret = "2514beb347a24b5fb40b596176840c6a";
-    private const string AuthHeader = "Basic MzRhMmJmMzQxOTBlNGEzOGIxNWQyYTdmNTFjMDkwM2Y6MjUxNGJlYjM0N2EyNGI1ZmI0MGI1OTYxNzY4NDBjNmE=";
+    private const string ClientId = "34a02cf8f4414e29b15921876da36f9a";
+    private const string ClientSecret = "daafbccc737745039dffe53d94fc76cf";
+    private const string AuthHeader = "Basic MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=";
 
     private static readonly string ConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
     private static readonly string CredentialsPath = Path.Combine(ConfigDir, "credentials.json");
@@ -29,7 +29,7 @@ public class EpicApiManager
     public static string GetLoginUrl()
     {
         return string.Format(
-            "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3Fclient_id%3D{0}%26response_type%3Dcode",
+            "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D{0}%26responseType%3Dcode",
             ClientId
         );
     }
