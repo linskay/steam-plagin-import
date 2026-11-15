@@ -28,6 +28,9 @@ public class MainWindowController
     private EpicApiManager epicApi;
     private Button uninstallBtn;
 
+    private Button createShortcutBtn;
+    private TextBlock shortcutStatusTxt;
+
     private string currentExePath;
     private bool hasShownTrayMessage = false;
 
@@ -36,6 +39,15 @@ public class MainWindowController
         currentExePath = exePath;
         epicApi = new EpicApiManager();
         LoadXaml();
+        try
+        {
+            string iconPath = CyberpunkTheme.EnsureAppIcon(currentExePath);
+            if (File.Exists(iconPath))
+            {
+                Window.Icon = BitmapFrame.Create(new Uri(iconPath));
+            }
+        }
+        catch { }
         BindEvents();
         RefreshData();
     }
@@ -89,6 +101,37 @@ public class MainWindowController
         steamStartupChk = (CheckBox)Window.FindName("SteamStartupChk");
         startupSyncChk = (CheckBox)Window.FindName("StartupSyncChk");
         collectionNameBox = (TextBox)Window.FindName("CollectionNameBox");
+        createShortcutBtn = (Button)Window.FindName("CreateShortcutBtn");
+        shortcutStatusTxt = (TextBlock)Window.FindName("ShortcutStatusTxt");
+
+        UpdateShortcutStatus();
+
+        if (createShortcutBtn != null)
+        {
+            createShortcutBtn.Click += (s, e) =>
+            {
+                CyberpunkTheme.PromptDesktopShortcut(Window, currentExePath, true);
+                UpdateShortcutStatus();
+            };
+        }
+
+        Window.Loaded += (s, e) =>
+        {
+            UpdateShortcutStatus();
+            try
+            {
+                var settings = AppSettings.Load();
+                if (!settings.DesktopShortcutPrompted && !CyberpunkTheme.HasDesktopShortcut())
+                {
+                    CyberpunkTheme.PromptDesktopShortcut(Window, currentExePath, false);
+                    settings.DesktopShortcutPrompted = true;
+                    settings.Save();
+                    UpdateShortcutStatus();
+                }
+            }
+            catch { }
+        };
+
         RefreshSettings();
         ((Button)Window.FindName("SaveSettingsBtn")).Click += (s, e) => {
             try {
@@ -97,7 +140,7 @@ public class MainWindowController
                 settings.SyncOnSteamStart = startupSyncChk.IsChecked == true;
                 settings.CollectionName = collectionNameBox.Text;
                 settings.Save();
-                ((TextBlock)Window.FindName("SettingsMessage")).Text = "Сохранено. Название коллекции применяется при синхронизации.";
+                ((TextBlock)Window.FindName("SettingsMessage")).Text = "[СОХРАНЕНО: ПРИМЕНИТСЯ ПРИ СИНХРОНИЗАЦИИ]";
             } catch (Exception ex) { MessageBox.Show(Window, ex.Message, "Настройки"); }
         };
         gamesListBox = (ListBox)Window.FindName("GamesListBox");
@@ -124,7 +167,7 @@ public class MainWindowController
                 Window.Hide();
                 if (!hasShownTrayMessage)
                 {
-                    Program.ShowTrayBalloon("Steam Epic Sync", "Приложение свернуто в трей и продолжает работу.", System.Windows.Forms.ToolTipIcon.Info);
+                    Program.ShowTrayBalloon("Steam Epic Sync // 2077", "Приложение свернуто в трей и продолжает работу.", System.Windows.Forms.ToolTipIcon.Info);
                     hasShownTrayMessage = true;
                 }
             };
@@ -175,9 +218,8 @@ public class MainWindowController
                     loginWin.Owner = Window;
                     if (loginWin.ShowDialog() == true && !string.IsNullOrEmpty(loginWin.AuthorizationCode))
                     {
-                        statusTxt.Text = "Подключение к Epic Games...";
+                        statusTxt.Text = "[ ПОДКЛЮЧЕНИЕ К СЕТИ EPIC GAMES... ]";
 
-                        // Perform API login asynchronously or synchronously since it's quick
                         bool success = false;
                         try
                         {
@@ -191,12 +233,13 @@ public class MainWindowController
                         if (success)
                         {
                             UpdateEpicAccountStatus();
-                            RefreshData(); TriggerSync();
+                            RefreshData();
+                            TriggerSync();
                         }
                         else
                         {
                             MessageBox.Show(Window, "Не удалось подключиться к аккаунту Epic Games.\n" + epicApi.LastError, "Ошибка авторизации", MessageBoxButton.OK, MessageBoxImage.Error);
-                            statusTxt.Text = "Ошибка входа в Epic Games";
+                            statusTxt.Text = "[ ОШИБКА ВХОДА В EPIC GAMES ]";
                         }
                     }
                 }
@@ -210,6 +253,22 @@ public class MainWindowController
             {
                 TriggerUninstall();
             };
+        }
+    }
+
+    public void UpdateShortcutStatus()
+    {
+        if (shortcutStatusTxt == null) return;
+        bool exists = CyberpunkTheme.HasDesktopShortcut();
+        if (exists)
+        {
+            shortcutStatusTxt.Text = "[ СТАТУС: ЯРЛЫК УСТАНОВЛЕН НА РАБОЧЕМ СТОЛЕ ]";
+            shortcutStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(252, 238, 10)); // Cyberpunk Yellow
+        }
+        else
+        {
+            shortcutStatusTxt.Text = "[ СТАТУС: ЯРЛЫК НЕ СОЗДАН ]";
+            shortcutStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(122, 132, 153));
         }
     }
 
@@ -227,15 +286,15 @@ public class MainWindowController
         {
             if (epicApi.IsLoggedIn)
             {
-                epicStatusTxt.Text = string.Format("Подключен:\n{0}", epicApi.DisplayName);
-                epicStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(0, 200, 83));
-                epicLoginBtn.Content = "Выйти из аккаунта";
+                epicStatusTxt.Text = string.Format("[ ПОДКЛЮЧЕН: {0} ]", epicApi.DisplayName);
+                epicStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(252, 238, 10)); // Cyber Yellow
+                epicLoginBtn.Content = "ВЫЙТИ ИЗ АККАУНТА";
             }
             else
             {
-                epicStatusTxt.Text = "Статус: Не авторизован";
-                epicStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(160, 165, 181));
-                epicLoginBtn.Content = "Подключить аккаунт";
+                epicStatusTxt.Text = "[ СТАТУС: НЕ АВТОРИЗОВАН ]";
+                epicStatusTxt.Foreground = new SolidColorBrush(Color.FromRgb(166, 180, 201));
+                epicLoginBtn.Content = "ПОДКЛЮЧИТЬ АККАУНТ";
             }
         }
     }
@@ -256,21 +315,23 @@ public class MainWindowController
                 if (g.IsInstalled) installedCount++;
             }
 
-            statusTxt.Text = string.Format("Игр в библиотеке: {0} (Установлено: {1})", games.Count, installedCount);
+            statusTxt.Text = string.Format("[ БИБЛИОТЕКА: {0} ИГР // УСТАНОВЛЕНО: {1} // MATRIX READY ]", games.Count, installedCount);
 
             gamesListBox.Items.Clear();
             foreach (var game in games)
             {
                 var grid = new Grid { Margin = new Thickness(8, 6, 8, 6) };
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 // Game Icon Border
                 var imgBorder = new Border
                 {
-                    CornerRadius = new CornerRadius(4),
-                    Background = new SolidColorBrush(Color.FromRgb(30, 32, 44)),
+                    CornerRadius = new CornerRadius(3),
+                    Background = new SolidColorBrush(Color.FromRgb(20, 23, 33)),
+                    BorderBrush = new SolidColorBrush(game.IsInstalled ? Color.FromRgb(252, 238, 10) : Color.FromRgb(0, 240, 255)),
+                    BorderThickness = new Thickness(1),
                     Width = 32,
                     Height = 32,
                     HorizontalAlignment = HorizontalAlignment.Left
@@ -320,7 +381,7 @@ public class MainWindowController
                 var dirTxt = new TextBlock
                 {
                     Text = game.IsInstalled ? game.InstallLocation : "Требуется загрузка перед запуском",
-                    Foreground = new SolidColorBrush(Color.FromRgb(108, 114, 129)),
+                    Foreground = new SolidColorBrush(Color.FromRgb(122, 132, 153)),
                     FontSize = 10,
                     Margin = new Thickness(0, 2, 0, 0),
                     TextTrimming = TextTrimming.CharacterEllipsis
@@ -330,23 +391,23 @@ public class MainWindowController
                 Grid.SetColumn(infoStack, 1);
                 grid.Children.Add(infoStack);
 
-                // Status Badge
+                // Status Badge in Cyberpunk Style
                 Border statusLabel;
                 if (game.IsInstalled)
                 {
                     statusLabel = new Border
                     {
-                        Background = new SolidColorBrush(Color.FromArgb(20, 0, 200, 83)),
-                        BorderBrush = new SolidColorBrush(Color.FromArgb(100, 0, 200, 83)),
+                        Background = new SolidColorBrush(Color.FromArgb(30, 252, 238, 10)),
+                        BorderBrush = new SolidColorBrush(Color.FromRgb(252, 238, 10)),
                         BorderThickness = new Thickness(1),
-                        CornerRadius = new CornerRadius(4),
+                        CornerRadius = new CornerRadius(3),
                         Padding = new Thickness(8, 4, 8, 4),
                         VerticalAlignment = VerticalAlignment.Center
                     };
                     var statusLabelText = new TextBlock
                     {
-                        Text = "Установлена",
-                        Foreground = new SolidColorBrush(Color.FromRgb(0, 200, 83)),
+                        Text = "[ УСТАНОВЛЕНА // 2077 ]",
+                        Foreground = new SolidColorBrush(Color.FromRgb(252, 238, 10)),
                         FontSize = 10,
                         FontWeight = FontWeights.Bold
                     };
@@ -356,17 +417,17 @@ public class MainWindowController
                 {
                     statusLabel = new Border
                     {
-                        Background = new SolidColorBrush(Color.FromArgb(20, 30, 136, 229)),
-                        BorderBrush = new SolidColorBrush(Color.FromArgb(100, 30, 136, 229)),
+                        Background = new SolidColorBrush(Color.FromArgb(30, 0, 240, 255)),
+                        BorderBrush = new SolidColorBrush(Color.FromRgb(0, 240, 255)),
                         BorderThickness = new Thickness(1),
-                        CornerRadius = new CornerRadius(4),
+                        CornerRadius = new CornerRadius(3),
                         Padding = new Thickness(8, 4, 8, 4),
                         VerticalAlignment = VerticalAlignment.Center
                     };
                     var statusLabelText = new TextBlock
                     {
-                        Text = "Облако (EGS)",
-                        Foreground = new SolidColorBrush(Color.FromRgb(30, 136, 229)),
+                        Text = "[ ОБЛАКО // EGS LINK ]",
+                        Foreground = new SolidColorBrush(Color.FromRgb(0, 240, 255)),
                         FontSize = 10,
                         FontWeight = FontWeights.Bold
                     };
@@ -378,10 +439,10 @@ public class MainWindowController
 
                 var border = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromRgb(24, 26, 36)),
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(34, 36, 48)),
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(6),
+                    Background = new SolidColorBrush(Color.FromRgb(18, 20, 29)),
+                    BorderBrush = new SolidColorBrush(game.IsInstalled ? Color.FromArgb(160, 252, 238, 10) : Color.FromArgb(120, 0, 240, 255)),
+                    BorderThickness = new Thickness(2, 1, 1, 1),
+                    CornerRadius = new CornerRadius(4),
                     Child = grid,
                     Margin = new Thickness(0, 0, 0, 6)
                 };
@@ -391,13 +452,13 @@ public class MainWindowController
         }
         catch (Exception ex)
         {
-            statusTxt.Text = "Ошибка загрузки: " + ex.Message;
+            statusTxt.Text = "[ ОШИБКА ЗАГРУЗКИ: " + ex.Message + " ]";
         }
     }
 
     public void TriggerSync()
     {
-        statusTxt.Text = "Синхронизация...";
+        statusTxt.Text = "[ СИНХРОНИЗАЦИЯ БИБЛИОТЕКИ STEAM ✕ EPIC... ]";
         syncBtn.IsEnabled = false;
 
         System.Threading.ThreadPool.QueueUserWorkItem(_ =>
@@ -409,21 +470,21 @@ public class MainWindowController
 
                 Window.Dispatcher.Invoke(() =>
                 {
-                    statusTxt.Text = string.Format("Синхронизация завершена. Добавлено: {0}, Удалено: {1}", added, removed);
+                    statusTxt.Text = string.Format("[ СИНХРОНИЗАЦИЯ ЗАВЕРШЕНА // ДОБАВЛЕНО: {0} // УДАЛЕНО: {1} ]", added, removed);
                     syncBtn.IsEnabled = true;
                     RefreshData();
-                    statusTxt.Text = string.IsNullOrEmpty(epicApi.LastError) ? "Готово. Откройте Steam." : "Использован кэш: " + epicApi.LastError;
+                    statusTxt.Text = string.IsNullOrEmpty(epicApi.LastError) ? "[ ГОТОВО // СИСТЕМА ОБНОВЛЕНА ]" : "[ ИСПОЛЬЗОВАН КЭШ: " + epicApi.LastError + " ]";
                     if (res.Contains("Обложка ")) MessageBox.Show(Window, res, "Результат синхронизации");
 
-                    Program.ShowTrayBalloon("Синхронизация успешна",
-                        string.Format("Добавлено игр: {0}. Библиотека обновлена.", added));
+                    Program.ShowTrayBalloon("Steam Epic Sync // 2077",
+                        string.Format("Синхронизация завершена. Добавлено игр: {0}.", added));
                 });
             }
             catch (Exception ex)
             {
                 Window.Dispatcher.Invoke(() =>
                 {
-                    statusTxt.Text = "Ошибка: " + ex.Message;
+                    statusTxt.Text = "[ ОШИБКА: " + ex.Message + " ]";
                     syncBtn.IsEnabled = true;
                 });
             }
@@ -471,6 +532,13 @@ public class MainWindowController
                 if (Directory.Exists(localAppDir))
                 {
                     Directory.Delete(localAppDir, true);
+                }
+
+                // 5. Delete desktop shortcut if exists
+                string shortcut = CyberpunkTheme.GetDesktopShortcutPath();
+                if (File.Exists(shortcut))
+                {
+                    try { File.Delete(shortcut); } catch {}
                 }
 
                 MessageBox.Show(

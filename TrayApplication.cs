@@ -67,10 +67,16 @@ public class TrayApplication : ApplicationContext
         });
         startupItem.Checked = checkStartupStatus != null ? checkStartupStatus() : false;
 
+        ToolStripMenuItem shortcutItem = new ToolStripMenuItem("⚡ Ярлык на рабочий стол (2077)", null, (s, e) => {
+            CyberpunkTheme.CreateDesktopShortcut(currentExePath);
+            ShowNotification("Cyberpunk 2077", "Ярлык успешно создан на рабочем столе!", ToolTipIcon.Info);
+        });
+
         exitItem = new ToolStripMenuItem("Выход", null, (s, e) => Exit());
 
         contextMenu.Items.Add(openItem);
         contextMenu.Items.Add(syncItem);
+        contextMenu.Items.Add(shortcutItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add(startupItem);
         contextMenu.Items.Add(new ToolStripSeparator());
@@ -94,38 +100,7 @@ public class TrayApplication : ApplicationContext
 
     private Icon CreateDynamicIcon()
     {
-        try
-        {
-            using (Bitmap bmp = new Bitmap(16, 16))
-            using (Graphics g = Graphics.FromImage(bmp))
-            {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-                // Dark background circle
-                using (Brush bgBrush = new SolidBrush(Color.FromArgb(20, 24, 30)))
-                {
-                    g.FillEllipse(bgBrush, 0, 0, 15, 15);
-                }
-
-                // Bright blue outline
-                using (Pen borderPen = new Pen(Color.FromArgb(0, 120, 215), 1.5f))
-                {
-                    g.DrawEllipse(borderPen, 1, 1, 13, 13);
-                }
-
-                // Vibrant green center dot (representing EGS sync status)
-                using (Brush dotBrush = new SolidBrush(Color.FromArgb(0, 200, 83)))
-                {
-                    g.FillEllipse(dotBrush, 5, 5, 5, 5);
-                }
-
-                return Icon.FromHandle(bmp.GetHicon());
-            }
-        }
-        catch
-        {
-            return SystemIcons.Application;
-        }
+        return CyberpunkTheme.GetTrayIcon();
     }
 
     public void UpdateStartupMenuItem()

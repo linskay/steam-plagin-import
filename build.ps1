@@ -33,7 +33,7 @@ if ($running) {
 
 Write-Host "Compiling..."
 
-& $csc /target:winexe /out:SteamEpicSync.exe /lib:$wpfLib /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /r:System.Web.Extensions.dll /resource:MainWindow.xaml Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs SteamBootstrap.cs
+& $csc /target:winexe /out:SteamEpicSync.exe /lib:$wpfLib /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /r:System.Web.Extensions.dll /resource:MainWindow.xaml Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs SteamBootstrap.cs CyberpunkTheme.cs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""

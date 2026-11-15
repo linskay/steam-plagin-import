@@ -44,7 +44,7 @@ jobs:
 
     - name: Compile Steam Epic Sync
       run: |
-        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /r:System.Web.Extensions.dll /resource:MainWindow.xaml Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs SteamBootstrap.cs
+        & C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:winexe /out:SteamEpicSync.exe /lib:C:\Windows\Microsoft.NET\Framework64\v4.0.30319\WPF /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /r:System.Web.Extensions.dll /resource:MainWindow.xaml Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs SteamBootstrap.cs CyberpunkTheme.cs
       shell: powershell
 
     - name: Package utility and module
@@ -52,6 +52,7 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force release/millennium-plugin/dist | Out-Null
         Copy-Item SteamEpicSync.exe release/
+        if (Test-Path SteamEpicSync.ico) { Copy-Item SteamEpicSync.ico release/ }
         Copy-Item README.md release/
         Copy-Item millennium-plugin/install.ps1 release/millennium-plugin/
         Copy-Item millennium-plugin/README.md release/millennium-plugin/

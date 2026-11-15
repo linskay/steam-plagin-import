@@ -97,6 +97,14 @@ class Regression
         game.Description = game.DisplayName;
         SteamStoreMatcher.EnrichDescriptions(new List<EpicGame> { game }, descriptionCache);
         Check(game.Description == "A real game description" && game.DescriptionSource == "Steam Store", "Placeholder descriptions use labeled cached Steam metadata without network");
+        string cpIconPath = Path.Combine(dir, "CyberpunkIconTest.ico");
+        CyberpunkTheme.GenerateAppIconFile(cpIconPath);
+        Check(File.Exists(cpIconPath) && new FileInfo(cpIconPath).Length > 0, "Cyberpunk 2077 icon generated");
+        using (var trayIco = CyberpunkTheme.GetTrayIcon())
+        {
+            Check(trayIco != null && trayIco.Width == 16 && trayIco.Height == 16, "Cyberpunk 2077 tray icon generated");
+        }
+        Check(CyberpunkTheme.GetDesktopShortcutPath().EndsWith(".lnk"), "Desktop shortcut path formatted");
         Console.WriteLine("All regression checks passed.");
     }
     static void ReadDocument(byte[] bytes, ref int position)

@@ -5,8 +5,10 @@ try {
     New-Item -ItemType Directory $testDir | Out-Null
     $compiler = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
     if (!(Test-Path $compiler)) { $compiler = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe" }
+    $wpfLib = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\WPF"
+    if (!(Test-Path $wpfLib)) { $wpfLib = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\WPF" }
     $testExe = Join-Path $testDir "Regression.exe"
-    & $compiler /nologo /target:exe /out:$testExe /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Drawing.dll tests\Regression.cs EpicApiManager.cs EpicSyncManager.cs VdfParser.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs
+    & $compiler /nologo /target:exe /out:$testExe /lib:$wpfLib /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.Web.Extensions.dll /r:System.Security.dll /r:System.Drawing.dll tests\Regression.cs EpicApiManager.cs EpicSyncManager.cs VdfParser.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs CyberpunkTheme.cs
     if ($LASTEXITCODE -ne 0) { throw "Test compilation failed" }
     & $testExe $testDir
     if ($LASTEXITCODE -ne 0) { throw "Regression checks failed" }

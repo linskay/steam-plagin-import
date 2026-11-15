@@ -9,6 +9,7 @@ public class AppSettings
     public bool SyncOnSteamStart { get; set; }
     public string CollectionName { get; set; }
     public string ExePath { get; set; }
+    public bool DesktopShortcutPrompted { get; set; }
     internal static string PathOverride = null;
     public static string ConfigPath { get { return PathOverride ?? Path.Combine(EpicSyncManager.GetSteamPath(), "config", "SteamEpicSync", "settings.json"); } }
     public AppSettings() { LaunchWithSteam = true; CollectionName = "Есть в EGS"; }
