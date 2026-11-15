@@ -5,21 +5,79 @@
         AllowsTransparency="True" Background="Transparent">
 
     <Window.Resources>
-        <!-- Cyberpunk Yellow Action Button Style -->
+        <!-- Custom Cyberpunk 2077 ScrollBar Thumb -->
+        <Style x:Key="CyberScrollBarThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="IsTabStop" Value="false"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="thumbBorder" Background="#FCEE0A" CornerRadius="1" Margin="1,0,1,0"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="thumbBorder" Property="Background" Value="#00F0FF"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="true">
+                                <Setter TargetName="thumbBorder" Property="Background" Value="#FFF23D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Custom Cyberpunk 2077 ScrollBar Style (Global for ListBox & ScrollViewers) -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
+            <Setter Property="Stylus.IsFlicksEnabled" Value="false"/>
+            <Setter Property="Width" Value="5"/>
+            <Setter Property="MinWidth" Value="5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid x:Name="Bg" SnapsToDevicePixels="true" Background="#0A0B10">
+                            <Border BorderBrush="#1C2130" BorderThickness="1,0,0,0" HorizontalAlignment="Left" Width="1"/>
+                            <Track x:Name="PART_Track" IsDirectionReversed="true">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0" Focusable="false"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Opacity="0" Focusable="false"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource CyberScrollBarThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter Property="Height" Value="5"/>
+                                <Setter Property="MinHeight" Value="5"/>
+                                <Setter Property="Width" Value="Auto"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk Yellow Action Button Style with thin clean border -->
         <Style x:Key="CyberButton" TargetType="Button">
             <Setter Property="Background" Value="#FCEE0A"/>
             <Setter Property="Foreground" Value="#000000"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="18,11"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#E6D905"/>
+            <Setter Property="Padding" Value="18,10"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
-                                CornerRadius="3"
-                                BorderThickness="0"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -29,6 +87,7 @@
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#FFE600"/>
+                    <Setter Property="BorderBrush" Value="#FFF23D"/>
                 </Trigger>
                 <Trigger Property="IsPressed" Value="True">
                     <Setter Property="Background" Value="#D4C700"/>
@@ -36,23 +95,23 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Cyberpunk Secondary Cyan Button Style -->
+        <!-- Cyberpunk Secondary Cyan Button Style with thin 1px line -->
         <Style x:Key="CyberSecondaryButton" TargetType="Button">
-            <Setter Property="Background" Value="#141722"/>
+            <Setter Property="Background" Value="#10131D"/>
             <Setter Property="Foreground" Value="#00F0FF"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#00F0FF"/>
-            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Padding" Value="12,7"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
+                                CornerRadius="2"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -70,23 +129,23 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Cyberpunk Install Shortcut Button Style -->
+        <!-- Cyberpunk Install Shortcut Button Style with thin yellow 1px line -->
         <Style x:Key="CyberInstallButton" TargetType="Button">
-            <Setter Property="Background" Value="#181B28"/>
+            <Setter Property="Background" Value="#131622"/>
             <Setter Property="Foreground" Value="#FCEE0A"/>
-            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#FCEE0A"/>
-            <Setter Property="Padding" Value="14,9"/>
+            <Setter Property="Padding" Value="12,8"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
+                                CornerRadius="2"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -104,23 +163,23 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Cyberpunk Danger Red Button Style -->
+        <!-- Cyberpunk Danger Red Button Style with thin red 1px line -->
         <Style x:Key="CyberDangerButton" TargetType="Button">
-            <Setter Property="Background" Value="#1A1117"/>
+            <Setter Property="Background" Value="#150E14"/>
             <Setter Property="Foreground" Value="#FF003C"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#FF003C"/>
-            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="Padding" Value="12,7"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
+                                CornerRadius="2"
                                 Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
@@ -138,52 +197,79 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Custom Cyberpunk CheckBox Style -->
-        <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#E0E6F0"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <!-- Custom Cyberpunk CheckBox with sleek 1px hairline border -->
+        <Style TargetType="{x:Type CheckBox}">
+            <Setter Property="Foreground" Value="#D6DFEC"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type CheckBox}">
+                        <Grid Margin="0,2,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="18"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="checkBorder" Grid.Column="0" Width="14" Height="14" Background="#0C0E14" BorderBrush="#252D40" BorderThickness="1" CornerRadius="1" VerticalAlignment="Center">
+                                <Path x:Name="checkMark" Data="M 2 6 L 5 9 L 10 3" Stroke="#FCEE0A" StrokeThickness="1.5" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="true">
+                                <Setter TargetName="checkMark" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="checkBorder" Property="BorderBrush" Value="#00F0FF"/>
+                                <Setter TargetName="checkBorder" Property="Background" Value="#121824"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="checkBorder" Property="BorderBrush" Value="#FCEE0A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
-    <!-- Main Cyberpunk Outer Border -->
-    <Border CornerRadius="8" Background="#0B0C10" BorderBrush="#FCEE0A" BorderThickness="1.5">
+    <!-- Main Outer Window Border: Thin, refined 1px Cyberpunk Yellow Hairline -->
+    <Border CornerRadius="4" Background="#090A0E" BorderBrush="#FCEE0A" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="42"/>
+                <RowDefinition Height="38"/>
                 <!-- 0. Header Title Bar -->
-                <RowDefinition Height="96"/>
+                <RowDefinition Height="88"/>
                 <!-- 1. Hero Banner -->
                 <RowDefinition Height="*"/>
                 <!-- 2. Main Content Split -->
-                <RowDefinition Height="34"/>
+                <RowDefinition Height="30"/>
                 <!-- 3. Status Bar -->
             </Grid.RowDefinitions>
 
-            <!-- 0. Title Bar -->
-            <Grid Grid.Row="0" Name="TitleBar" Background="#07080B">
+            <!-- 0. Title Bar with thin 1px bottom border -->
+            <Grid Grid.Row="0" Name="TitleBar" Background="#06070B">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="80"/>
                 </Grid.ColumnDefinitions>
+                <Border BorderBrush="#181D2A" BorderThickness="0,0,0,1" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="15,0,0,0">
-                    <Border Background="#FCEE0A" CornerRadius="2" Padding="5,2,5,2" Margin="0,0,10,0">
-                        <TextBlock Text="CP // 2077" Foreground="#000000" FontSize="10" FontWeight="Bold"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                    <Border Background="#FCEE0A" CornerRadius="1" Padding="4,1,4,1" Margin="0,0,8,0">
+                        <TextBlock Text="CP // 2077" Foreground="#000000" FontSize="9" FontWeight="Bold"/>
                     </Border>
-                    <Ellipse Width="7" Height="7" Fill="#00F0FF" Margin="0,0,8,0"/>
-                    <TextBlock Text="// STEAM ✕ EPIC SYNC // NETRUNNER PROTOCOL //" Foreground="#A6B4C9" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <Ellipse Width="5" Height="5" Fill="#00F0FF" Margin="0,0,8,0"/>
+                    <TextBlock Text="// STEAM ✕ EPIC SYNC // NETRUNNER PROTOCOL //" Foreground="#95A3B8" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0">
-                    <Button Name="MinBtn" Width="30" Height="28" Content="—" Foreground="#00F0FF" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="12">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <Button Name="MinBtn" Width="26" Height="24" Content="—" Foreground="#00F0FF" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="11">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="1">
                                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                         </ControlTemplate>
@@ -191,20 +277,20 @@
                                 </Setter>
                                 <Style.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#1A2234"/>
+                                        <Setter Property="Background" Value="#131B2A"/>
                                         <Setter Property="Foreground" Value="#FFFFFF"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
                         </Button.Style>
                     </Button>
-                    <Button Name="CloseBtn" Width="30" Height="28" Content="✕" Foreground="#FF003C" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="11" Margin="5,0,0,0">
+                    <Button Name="CloseBtn" Width="26" Height="24" Content="✕" Foreground="#FF003C" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="10" Margin="4,0,0,0">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="3">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="1">
                                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                         </ControlTemplate>
@@ -222,12 +308,12 @@
                 </StackPanel>
             </Grid>
 
-            <!-- 1. Hero Banner (Cyberpunk Gradient & Accent Bar) -->
-            <Grid Grid.Row="1" Margin="0,0,0,1">
+            <!-- 1. Hero Banner (Thin Hairline Accents) -->
+            <Grid Grid.Row="1">
                 <Grid.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#090A0F" Offset="0.0"/>
-                        <GradientStop Color="#141824" Offset="1.0"/>
+                        <GradientStop Color="#08090D" Offset="0.0"/>
+                        <GradientStop Color="#10141F" Offset="1.0"/>
                     </LinearGradientBrush>
                 </Grid.Background>
                 <Grid.ColumnDefinitions>
@@ -235,98 +321,100 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Top Yellow Accent Line -->
-                <Border Height="2" Background="#FCEE0A" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
+                <!-- Thin 1px Top Neon Accent Line -->
+                <Border Height="1" Background="#FCEE0A" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
+                <!-- Thin 1px Bottom Divider Line -->
+                <Border Height="1" Background="#161B28" VerticalAlignment="Bottom" Grid.ColumnSpan="2"/>
 
-                <StackPanel VerticalAlignment="Center" Margin="25,0,0,0">
-                    <TextBlock Text="// NIGHT CITY PROTOCOL // DIRECT MEMORY LINK" Foreground="#00F0FF" FontSize="10" FontWeight="Bold"/>
-                    <TextBlock Text="STEAM ✕ EPIC GAMES" Foreground="#FFFFFF" FontSize="23" FontWeight="Bold" Margin="0,2,0,0"/>
-                    <TextBlock Text="Автономный импорт библиотеки Epic в Steam · Оптимизация ОЗУ · Оформление" Foreground="#7A8499" FontSize="11" Margin="0,4,0,0"/>
+                <StackPanel VerticalAlignment="Center" Margin="22,0,0,0">
+                    <TextBlock Text="// NIGHT CITY PROTOCOL // DIRECT MEMORY LINK" Foreground="#00F0FF" FontSize="9" FontWeight="Bold"/>
+                    <TextBlock Text="STEAM ✕ EPIC GAMES" Foreground="#FFFFFF" FontSize="20" FontWeight="Bold" Margin="0,2,0,0"/>
+                    <TextBlock Text="Автономный импорт библиотеки Epic в Steam · Оптимизация ОЗУ · Оформление" Foreground="#6E7B91" FontSize="11" Margin="0,3,0,0"/>
                 </StackPanel>
 
-                <Button Grid.Column="1" Name="SyncBtn" Style="{StaticResource CyberButton}" Content="⚡ СИНХРОНИЗИРОВАТЬ СЕЙЧАС" VerticalAlignment="Center" Margin="0,0,25,0"/>
+                <Button Grid.Column="1" Name="SyncBtn" Style="{StaticResource CyberButton}" Content="⚡ СИНХРОНИЗИРОВАТЬ СЕЙЧАС" VerticalAlignment="Center" Margin="0,0,22,0"/>
             </Grid>
 
-            <!-- 2. Content Area (Left: Settings & Shortcut, Right: Games Database) -->
-            <Grid Grid.Row="2" Margin="20,15,20,10">
+            <!-- 2. Content Area (Split: Left Settings, Right Games List) -->
+            <Grid Grid.Row="2" Margin="18,12,18,8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="290"/>
+                    <ColumnDefinition Width="285"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- Left Column -->
-                <ScrollViewer Grid.Column="0" Margin="0,0,15,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
-                        <!-- Shortcut Box (Значок установки ярлыка) -->
-                        <TextBlock Text="// ЯРЛЫК НА РАБОЧЕМ СТОЛЕ //" Foreground="#FCEE0A" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-                        <Border Background="#12141D" CornerRadius="6" Padding="14" BorderBrush="#FCEE0A" BorderThickness="1" Margin="0,0,0,15">
+                <!-- Left Column with Custom Cyberpunk ScrollViewer -->
+                <ScrollViewer Grid.Column="0" Margin="0,0,14,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,4,0">
+                        <!-- Shortcut Box (Значок установки ярлыка) with thin 1px border -->
+                        <TextBlock Text="// ЯРЛЫК НА РАБОЧЕМ СТОЛЕ //" Foreground="#FCEE0A" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <Border Background="#0F111A" CornerRadius="2" Padding="12" BorderBrush="#50FCEE0A" BorderThickness="1" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Text="Вывести стильный ярлык на рабочий стол для быстрого запуска утилиты." Foreground="#A6B4C9" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                <Button Name="CreateShortcutBtn" Style="{StaticResource CyberInstallButton}" Content="⚡ УСТАНОВИТЬ ЯРЛЫК (2077)" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
-                                <TextBlock Name="ShortcutStatusTxt" Text="[СТАТУС ЯРЛЫКА: ПРОВЕРКА...]" Foreground="#00F0FF" FontSize="10" FontWeight="SemiBold"/>
+                                <TextBlock Text="Вывести стильный ярлык на рабочий стол для быстрого запуска утилиты." Foreground="#9AA8BC" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <Button Name="CreateShortcutBtn" Style="{StaticResource CyberInstallButton}" Content="⚡ УСТАНОВИТЬ ЯРЛЫК (2077)" HorizontalAlignment="Stretch" Margin="0,0,0,6"/>
+                                <TextBlock Name="ShortcutStatusTxt" Text="[СТАТУС ЯРЛЫКА: ПРОВЕРКА...]" Foreground="#00F0FF" FontSize="9" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- System Settings -->
-                        <TextBlock Text="// НАСТРОЙКИ СИСТЕМЫ //" Foreground="#00F0FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-                        <Border Background="#12141D" CornerRadius="6" Padding="14" BorderBrush="#232738" BorderThickness="1" Margin="0,0,0,15">
+                        <!-- System Settings with thin 1px borders -->
+                        <TextBlock Text="// НАСТРОЙКИ СИСТЕМЫ //" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <Border Background="#0F111A" CornerRadius="2" Padding="12" BorderBrush="#1C2132" BorderThickness="1" Margin="0,0,0,12">
                             <StackPanel>
-                                <CheckBox Name="SteamStartupChk" Content="Запуск вместе со Steam" Margin="0,0,0,10"/>
-                                <CheckBox Name="StartupSyncChk" Content="Синхронизация при запуске Steam" Margin="0,0,0,10"/>
-                                <TextBlock Text="При автосинхронизации Steam один раз перезапускается для безопасной записи базы." Foreground="#7A8499" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <CheckBox Name="SteamStartupChk" Content="Запуск вместе со Steam" Margin="0,0,0,8"/>
+                                <CheckBox Name="StartupSyncChk" Content="Синхронизация при запуске Steam" Margin="0,0,0,8"/>
+                                <TextBlock Text="При автосинхронизации Steam один раз перезапускается для безопасной записи базы." Foreground="#6E7B91" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,10"/>
                                 
-                                <TextBlock Text="Название коллекции в Steam" Foreground="#A6B4C9" FontSize="11" Margin="0,0,0,5"/>
-                                <TextBox Name="CollectionNameBox" MaxLength="80" Padding="7" Background="#0A0B10" Foreground="#FFFFFF" BorderBrush="#00F0FF" BorderThickness="1" Margin="0,0,0,10"/>
-                                <Button Name="SaveSettingsBtn" Style="{StaticResource CyberSecondaryButton}" Content="Сохранить настройки" HorizontalAlignment="Stretch" Margin="0,0,0,10"/>
-                                <TextBlock Name="SettingsMessage" Foreground="#FCEE0A" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <TextBlock Text="Название коллекции в Steam" Foreground="#9AA8BC" FontSize="10" Margin="0,0,0,4"/>
+                                <TextBox Name="CollectionNameBox" MaxLength="80" Padding="5" Background="#08090E" Foreground="#FFFFFF" BorderBrush="#00F0FF" BorderThickness="1" Margin="0,0,0,8" FontSize="11"/>
+                                <Button Name="SaveSettingsBtn" Style="{StaticResource CyberSecondaryButton}" Content="Сохранить настройки" HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
+                                <TextBlock Name="SettingsMessage" Foreground="#FCEE0A" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                                <CheckBox Name="StartupChk" Content="Автозапуск с Windows" Margin="0,0,0,10"/>
-                                <CheckBox Name="CloseEgsChk" Content="Закрывать EGS после выхода из игры" IsChecked="True" Margin="0,0,0,10"/>
-                                <TextBlock Text="Импортируются также неустановленные игры из облака EGS." Foreground="#7A8499" FontSize="10" TextWrapping="Wrap"/>
+                                <CheckBox Name="StartupChk" Content="Автозапуск с Windows" Margin="0,0,0,8"/>
+                                <CheckBox Name="CloseEgsChk" Content="Закрывать EGS после выхода из игры" IsChecked="True" Margin="0,0,0,8"/>
+                                <TextBlock Text="Импортируются также неустановленные игры из облака EGS." Foreground="#6E7B91" FontSize="9" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Epic Games Account -->
-                        <TextBlock Text="// СТАТУС EPIC GAMES ID //" Foreground="#00F0FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-                        <Border Background="#12141D" CornerRadius="6" Padding="14" BorderBrush="#232738" BorderThickness="1" Margin="0,0,0,15">
+                        <!-- Epic Games Account with thin 1px border -->
+                        <TextBlock Text="// СТАТУС EPIC GAMES ID //" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <Border Background="#0F111A" CornerRadius="2" Padding="12" BorderBrush="#1C2132" BorderThickness="1" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Name="EpicStatusTxt" Text="Статус: Не авторизован" Foreground="#A6B4C9" FontSize="11" Margin="0,0,0,10" TextWrapping="Wrap"/>
+                                <TextBlock Name="EpicStatusTxt" Text="Статус: Не авторизован" Foreground="#9AA8BC" FontSize="10" Margin="0,0,0,8" TextWrapping="Wrap"/>
                                 <Button Name="EpicLoginBtn" Style="{StaticResource CyberSecondaryButton}" Content="Подключить аккаунт" HorizontalAlignment="Stretch"/>
                             </StackPanel>
                         </Border>
 
-                        <!-- Emergency Reset -->
-                        <TextBlock Text="// АВАРИЙНЫЙ СБРОС //" Foreground="#FF003C" FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-                        <Border Background="#12141D" CornerRadius="6" Padding="14" BorderBrush="#3D1822" BorderThickness="1">
+                        <!-- Emergency Reset with thin 1px red border -->
+                        <TextBlock Text="// АВАРИЙНЫЙ СБРОС //" Foreground="#FF003C" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <Border Background="#0F111A" CornerRadius="2" Padding="12" BorderBrush="#2D151D" BorderThickness="1">
                             <StackPanel>
-                                <TextBlock Text="Удалить все импортированные ярлыки из Steam, очистить кэш и настройки." Foreground="#7A8499" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <TextBlock Text="Удалить все импортированные ярлыки из Steam, очистить кэш и настройки." Foreground="#6E7B91" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                 <Button Name="UninstallBtn" Style="{StaticResource CyberDangerButton}" Content="ПОЛНОЕ УДАЛЕНИЕ УТИЛИТЫ" HorizontalAlignment="Stretch"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- Right Column: Database of Games -->
+                <!-- Right Column: Games Database with thin 1px border and custom ScrollViewer -->
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="// БАЗА ДАННЫХ ИГР [NEURAL ARCHIVE] //" Foreground="#00F0FF" FontSize="11" FontWeight="Bold" Margin="0,0,0,10"/>
+                    <TextBlock Grid.Row="0" Text="// БАЗА ДАННЫХ ИГР [NEURAL ARCHIVE] //" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" Margin="0,0,0,8"/>
 
-                    <ListBox Grid.Row="1" Name="GamesListBox" Background="#0C0D14" BorderBrush="#232738" BorderThickness="1"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" Padding="6">
+                    <ListBox Grid.Row="1" Name="GamesListBox" Background="#090B10" BorderBrush="#1C2132" BorderThickness="1"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Auto" Padding="4">
                         <ListBox.Resources>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Background" Value="Transparent"/>
                                 <Setter Property="BorderThickness" Value="0"/>
-                                <Setter Property="Margin" Value="0,0,0,5"/>
+                                <Setter Property="Margin" Value="0,0,0,4"/>
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListBoxItem">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="2">
                                                 <ContentPresenter />
                                             </Border>
                                         </ControlTemplate>
@@ -338,17 +426,17 @@
                 </Grid>
             </Grid>
 
-            <!-- 3. Bottom Status Bar -->
-            <Grid Grid.Row="3" Background="#07080B" SnapsToDevicePixels="True">
+            <!-- 3. Bottom Status Bar with thin 1px hairline border -->
+            <Grid Grid.Row="3" Background="#06070B" SnapsToDevicePixels="True">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <!-- Top Status Border Line -->
-                <Border Height="1" Background="#232738" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
+                <Border Height="1" Background="#181D2A" VerticalAlignment="Top" Grid.ColumnSpan="2"/>
 
-                <TextBlock Grid.Column="0" Name="StatusTxt" Text="[ STATUS: ГОТОВ К РАБОТЕ // CYBER LINK ACTIVE ]" Foreground="#FCEE0A" FontSize="11" VerticalAlignment="Center" Margin="15,0,0,0"/>
-                <TextBlock Grid.Column="1" Text="CYBERPUNK 2077 EDITION // V2.077" Foreground="#00F0FF" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,15,0"/>
+                <TextBlock Grid.Column="0" Name="StatusTxt" Text="[ STATUS: ГОТОВ К РАБОТЕ // CYBER LINK ACTIVE ]" Foreground="#FCEE0A" FontSize="10" VerticalAlignment="Center" Margin="14,0,0,0"/>
+                <TextBlock Grid.Column="1" Text="CYBERPUNK 2077 EDITION // V2.077" Foreground="#00F0FF" FontSize="9" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,14,0"/>
             </Grid>
         </Grid>
     </Border>

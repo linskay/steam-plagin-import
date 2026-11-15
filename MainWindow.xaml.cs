@@ -492,12 +492,12 @@ public class MainWindowController
 
                 var border = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromRgb(18, 20, 29)),
-                    BorderBrush = new SolidColorBrush(game.IsInstalled ? Color.FromArgb(160, 252, 238, 10) : Color.FromArgb(120, 0, 240, 255)),
-                    BorderThickness = new Thickness(2, 1, 1, 1),
-                    CornerRadius = new CornerRadius(4),
+                    Background = new SolidColorBrush(Color.FromRgb(14, 16, 24)),
+                    BorderBrush = new SolidColorBrush(game.IsInstalled ? Color.FromArgb(180, 252, 238, 10) : Color.FromArgb(140, 0, 240, 255)),
+                    BorderThickness = new Thickness(1, 1, 1, 1),
+                    CornerRadius = new CornerRadius(2),
                     Child = grid,
-                    Margin = new Thickness(0, 0, 0, 6)
+                    Margin = new Thickness(0, 0, 0, 4)
                 };
 
                 gamesListBox.Items.Add(border);
