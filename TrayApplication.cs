@@ -111,7 +111,7 @@ public class TrayApplication : ApplicationContext
         }
     }
 
-    private void Exit()
+    public void Exit()
     {
         if (steamMonitorTimer != null)
         {

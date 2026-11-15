@@ -133,16 +133,39 @@ public class MainWindowController
         };
 
         RefreshSettings();
-        ((Button)Window.FindName("SaveSettingsBtn")).Click += (s, e) => {
-            try {
-                var settings = AppSettings.Load();
-                settings.LaunchWithSteam = steamStartupChk.IsChecked == true;
-                settings.SyncOnSteamStart = startupSyncChk.IsChecked == true;
-                settings.CollectionName = collectionNameBox.Text;
-                settings.Save();
-                ((TextBlock)Window.FindName("SettingsMessage")).Text = "[СОХРАНЕНО: ПРИМЕНИТСЯ ПРИ СИНХРОНИЗАЦИИ]";
-            } catch (Exception ex) { MessageBox.Show(Window, ex.Message, "Настройки"); }
-        };
+
+        // Auto-save on any checkbox click immediately
+        if (steamStartupChk != null)
+        {
+            steamStartupChk.Click += (s, e) => SaveAllSettings();
+        }
+
+        if (startupSyncChk != null)
+        {
+            startupSyncChk.Click += (s, e) => SaveAllSettings();
+        }
+
+        if (startupChk != null)
+        {
+            startupChk.Click += (s, e) => SaveAllSettings();
+        }
+
+        if (closeEgsChk != null)
+        {
+            closeEgsChk.Click += (s, e) => SaveAllSettings();
+        }
+
+        if (collectionNameBox != null)
+        {
+            collectionNameBox.LostFocus += (s, e) => SaveAllSettings();
+        }
+
+        var saveBtn = (Button)Window.FindName("SaveSettingsBtn");
+        if (saveBtn != null)
+        {
+            saveBtn.Click += (s, e) => SaveAllSettings();
+        }
+
         gamesListBox = (ListBox)Window.FindName("GamesListBox");
         statusTxt = (TextBlock)Window.FindName("StatusTxt");
 
@@ -155,15 +178,12 @@ public class MainWindowController
             };
         }
 
+        // Minimize button: hides window to tray
         if (minBtn != null)
         {
-            minBtn.Click += (s, e) => Window.Hide();
-        }
-
-        if (closeBtn != null)
-        {
-            closeBtn.Click += (s, e) =>
+            minBtn.Click += (s, e) =>
             {
+                SaveAllSettings();
                 Window.Hide();
                 if (!hasShownTrayMessage)
                 {
@@ -173,29 +193,19 @@ public class MainWindowController
             };
         }
 
+        // Close button: saves settings and fully closes/exits application
+        if (closeBtn != null)
+        {
+            closeBtn.Click += (s, e) =>
+            {
+                SaveAllSettings();
+                Program.ExitApplication();
+            };
+        }
+
         if (syncBtn != null)
         {
             syncBtn.Click += (s, e) => TriggerSync();
-        }
-
-        if (startupChk != null)
-        {
-            startupChk.IsChecked = Program.IsRunOnStartup();
-            startupChk.Click += (s, e) =>
-            {
-                bool check = startupChk.IsChecked ?? false;
-                Program.SetRunOnStartup(check);
-                Program.UpdateTrayMenu();
-            };
-        }
-
-        if (closeEgsChk != null)
-        {
-            closeEgsChk.IsChecked = Program.GetCloseEgsSetting();
-            closeEgsChk.Click += (s, e) =>
-            {
-                Program.SetCloseEgsSetting(closeEgsChk.IsChecked ?? true);
-            };
         }
 
         epicLoginBtn = (Button)Window.FindName("EpicLoginBtn");
@@ -256,6 +266,47 @@ public class MainWindowController
         }
     }
 
+    public void SaveAllSettings()
+    {
+        try
+        {
+            var settings = AppSettings.Load();
+            if (steamStartupChk != null) settings.LaunchWithSteam = steamStartupChk.IsChecked == true;
+            if (startupSyncChk != null) settings.SyncOnSteamStart = startupSyncChk.IsChecked == true;
+            if (collectionNameBox != null)
+            {
+                string raw = (collectionNameBox.Text ?? "").Trim();
+                if (!string.IsNullOrEmpty(raw))
+                {
+                    try { settings.CollectionName = AppSettings.ValidateName(raw); }
+                    catch { }
+                }
+            }
+            settings.Save();
+
+            if (startupChk != null)
+            {
+                Program.SetRunOnStartup(startupChk.IsChecked == true);
+                Program.UpdateTrayMenu();
+            }
+
+            if (closeEgsChk != null)
+            {
+                Program.SetCloseEgsSetting(closeEgsChk.IsChecked == true);
+            }
+
+            var msg = (TextBlock)Window.FindName("SettingsMessage");
+            if (msg != null)
+            {
+                msg.Text = "[НАСТРОЙКИ СОХРАНЕНЫ]";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error saving settings: " + ex.Message);
+        }
+    }
+
     public void UpdateShortcutStatus()
     {
         if (shortcutStatusTxt == null) return;
@@ -278,6 +329,8 @@ public class MainWindowController
         if (steamStartupChk != null) steamStartupChk.IsChecked = settings.LaunchWithSteam;
         if (startupSyncChk != null) startupSyncChk.IsChecked = settings.SyncOnSteamStart;
         if (collectionNameBox != null) collectionNameBox.Text = settings.CollectionName;
+        if (startupChk != null) startupChk.IsChecked = Program.IsRunOnStartup();
+        if (closeEgsChk != null) closeEgsChk.IsChecked = Program.GetCloseEgsSetting();
     }
 
     private void UpdateEpicAccountStatus()
@@ -550,7 +603,7 @@ public class MainWindowController
                 );
 
                 // Exit the entire application
-                Application.Current.Shutdown();
+                Program.ExitApplication();
             }
             catch (Exception ex)
             {

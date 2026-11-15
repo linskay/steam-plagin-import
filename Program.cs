@@ -21,7 +21,6 @@ public static class Program
 
         exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
 
-
         // Parse command line arguments
         if (args.Length > 0)
         {
@@ -179,11 +178,11 @@ public static class Program
             try
             {
                 controller = new MainWindowController(exePath);
-                // When closing the window, cancel the close and hide it instead
+                // When closing the window, save all settings and exit application
                 controller.Window.Closing += (s, e) =>
                 {
-                    e.Cancel = true;
-                    controller.Window.Hide();
+                    controller.SaveAllSettings();
+                    ExitApplication();
                 };
             }
             catch (Exception ex)
@@ -198,6 +197,18 @@ public static class Program
         controller.Window.Show();
         controller.Window.Activate();
         controller.RefreshData();
+    }
+
+    public static void ExitApplication()
+    {
+        if (trayApp != null)
+        {
+            trayApp.Exit();
+        }
+        else
+        {
+            Environment.Exit(0);
+        }
     }
 
     public static void TriggerSyncNow()
@@ -309,5 +320,4 @@ public static class Program
         }
         catch { }
     }
-
 }
