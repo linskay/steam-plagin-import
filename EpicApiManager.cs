@@ -1,454 +1,185 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
+using System.Web.Script.Serialization;
+using System.Security.Cryptography;
 
 public class EpicApiManager
 {
-    private const string ClientId = "34a2bf34190e4a38b15d2a7f51c0903f";
-    private const string ClientSecret = "2514beb347a24b5fb40b596176840c6a";
-    private const string AuthHeader = "Basic MzRhMmJmMzQxOTBlNGEzOGIxNWQyYTdmNTFjMDkwM2Y6MjUxNGJlYjM0N2EyNGI1ZmI0MGI1OTYxNzY4NDBjNmE=";
-
-    private static readonly string ConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
-    private static readonly string CredentialsPath = Path.Combine(ConfigDir, "credentials.json");
-    private static readonly string LibraryCachePath = Path.Combine(ConfigDir, "epic_library.json");
-
+    const string ClientId = "34a02cf8f4414e29b15921876da36f9a";
+    const string ClientSecret = "daafbccc737745039dffe53d94fc76cf";
+    static readonly string ConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
+    static readonly string CredentialsPath = Path.Combine(ConfigDir, "credentials.json");
+    static readonly string LibraryCachePath = Path.Combine(ConfigDir, "epic_library.json");
+    readonly JavaScriptSerializer json = new JavaScriptSerializer { MaxJsonLength = 33554432 };
+    DateTime expires = DateTime.MinValue;
     public string AccessToken { get; private set; }
     public string RefreshToken { get; private set; }
     public string AccountId { get; private set; }
     public string DisplayName { get; private set; }
-    public bool IsLoggedIn { get; private set; }
-
+    public bool IsLoggedIn { get { return !string.IsNullOrEmpty(RefreshToken); } }
+    public string LastError { get; private set; }
+    public bool LibraryIsFresh { get; private set; }
     public EpicApiManager()
     {
-        LoadCredentials();
-    }
-
-    public static string GetLoginUrl()
-    {
-        return string.Format(
-            "https://www.epicgames.com/id/login?redirectUrl=https%3A%2F%2Fwww.epicgames.com%2Fid%2Fapi%2Fredirect%3FclientId%3D{0}%26responseType%3Dcode",
-            ClientId
-        );
-    }
-
-    public bool LoginWithCode(string code)
-    {
+        ServicePointManager.SecurityProtocol |= (SecurityProtocolType)3072;
         try
         {
-            string body = string.Format("grant_type=authorization_code&code={0}", code);
-            return RequestTokens(body);
+            if (!File.Exists(CredentialsPath)) return;
+            byte[] bytes = File.ReadAllBytes(CredentialsPath);
+            try { bytes = ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser); } catch (CryptographicException) { }
+            var data = Map(json.DeserializeObject(Encoding.UTF8.GetString(bytes)));
+            RefreshToken = Text(data, "refresh_token"); AccountId = Text(data, "account_id"); DisplayName = Text(data, "displayName");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error logging in: " + ex.Message);
-            return false;
-        }
+        catch (Exception ex) { LastError = ex.Message; }
     }
-
-    public bool RefreshSession()
+    public static string GetLoginUrl() { return "https://www.epicgames.com/id/login?redirectUrl=" + Uri.EscapeDataString("https://www.epicgames.com/id/api/redirect?clientId=" + ClientId + "&responseType=code"); }
+    public static string ParseAuthorizationCode(string input)
     {
-        if (string.IsNullOrEmpty(RefreshToken))
+        input = (input ?? "").Trim();
+        if (input.StartsWith("{")) return Text(Map(new JavaScriptSerializer().DeserializeObject(input)), "authorizationCode");
+        Uri uri;
+        if (Uri.TryCreate(input, UriKind.Absolute, out uri))
         {
-            return false;
-        }
-
-        try
-        {
-            string body = string.Format("grant_type=refresh_token&refresh_token={0}", RefreshToken);
-            return RequestTokens(body);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error refreshing session: " + ex.Message);
-            Logout();
-            return false;
-        }
-    }
-
-    public void Logout()
-    {
-        AccessToken = null;
-        RefreshToken = null;
-        AccountId = null;
-        DisplayName = null;
-        IsLoggedIn = false;
-
-        try
-        {
-            if (File.Exists(CredentialsPath))
+            foreach (string pair in uri.Query.TrimStart('?').Split('&'))
             {
-                File.Delete(CredentialsPath);
+                string[] parts = pair.Split(new char[] { '=' }, 2);
+                if (parts.Length == 2 && (parts[0] == "code" || parts[0] == "authorizationCode")) return Uri.UnescapeDataString(parts[1]);
             }
-            if (File.Exists(LibraryCachePath))
-            {
-                File.Delete(LibraryCachePath);
-            }
+            return "";
         }
-        catch { }
+        return System.Text.RegularExpressions.Regex.IsMatch(input, "^[a-zA-Z0-9_-]{16,512}$") ? input : "";
     }
-
-    private bool RequestTokens(string requestBody)
+    public bool LoginWithCode(string code) { return RequestTokens("grant_type=authorization_code&code=" + Uri.EscapeDataString(code)); }
+    public bool RefreshSession() { return IsLoggedIn && RequestTokens("grant_type=refresh_token&refresh_token=" + Uri.EscapeDataString(RefreshToken)); }
+    bool RequestTokens(string body)
     {
         try
         {
-            var request = (HttpWebRequest)WebRequest.Create("https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token");
-            request.Method = "POST";
-            request.Headers["Authorization"] = AuthHeader;
-            request.ContentType = "application/x-www-form-urlencoded";
-
-            byte[] bytes = Encoding.UTF8.GetBytes(requestBody);
-            request.ContentLength = bytes.Length;
-
-            using (Stream reqStream = request.GetRequestStream())
+            var data = Map(json.DeserializeObject(Send("https://account-public-service-prod03.ol.epicgames.com/account/api/oauth/token", body + "&token_type=eg1", true, false)));
+            if (Text(data, "access_token").Length == 0 || Text(data, "refresh_token").Length == 0) throw new InvalidDataException("Epic не вернул токены сессии.");
+            AccessToken = Text(data, "access_token"); RefreshToken = Text(data, "refresh_token"); AccountId = Text(data, "account_id"); DisplayName = Text(data, "displayName");
+            int seconds; expires = DateTime.UtcNow.AddSeconds(int.TryParse(Text(data, "expires_in"), out seconds) ? Math.Max(0, seconds - 60) : 300);
+            Directory.CreateDirectory(ConfigDir);
+            File.WriteAllBytes(CredentialsPath, ProtectedData.Protect(Encoding.UTF8.GetBytes(json.Serialize(data)), null, DataProtectionScope.CurrentUser));
+            LastError = null; return true;
+        }
+        catch (Exception ex) { LastError = ex.Message; return false; }
+    }
+    string Send(string url, string body, bool token, bool retry)
+    {
+        var request = (HttpWebRequest)WebRequest.Create(url);
+        request.Timeout = request.ReadWriteTimeout = 20000;
+        request.UserAgent = "UELauncher/11.0.1-14907503+++Portal+Release-Live Windows/10.0.19041.1.256.64bit";
+        request.Headers["Authorization"] = token ? "Basic " + Convert.ToBase64String(Encoding.ASCII.GetBytes(ClientId + ":" + ClientSecret)) : "bearer " + AccessToken;
+        if (body != null)
+        {
+            request.Method = "POST"; request.ContentType = "application/x-www-form-urlencoded";
+            byte[] bytes = Encoding.UTF8.GetBytes(body);
+            using (var stream = request.GetRequestStream()) stream.Write(bytes, 0, bytes.Length);
+        }
+        try { using (var response = request.GetResponse()) using (var reader = new StreamReader(response.GetResponseStream())) return reader.ReadToEnd(); }
+        catch (WebException ex)
+        {
+            var response = ex.Response as HttpWebResponse;
+            if (!token && retry && response != null && response.StatusCode == HttpStatusCode.Unauthorized)
             {
-                reqStream.Write(bytes, 0, bytes.Length);
+                response.Dispose();
+                if (RefreshSession()) return Send(url, body, false, false);
+                throw new InvalidOperationException("Сессия Epic истекла. Подключите аккаунт заново. " + LastError);
             }
-
-            using (var response = (HttpWebResponse)request.GetResponse())
-            using (var reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+            if (response != null)
             {
-                string json = reader.ReadToEnd();
-                
-                AccessToken = ExtractJsonValue(json, "access_token");
-                RefreshToken = ExtractJsonValue(json, "refresh_token");
-                AccountId = ExtractJsonValue(json, "account_id");
-                DisplayName = ExtractJsonValue(json, "displayName");
-
-                if (!string.IsNullOrEmpty(AccessToken))
+                using (response) using (var reader = new StreamReader(response.GetResponseStream()))
                 {
-                    IsLoggedIn = true;
-                    SaveCredentials();
-                    return true;
+                    var error = Map(json.DeserializeObject(reader.ReadToEnd()));
+                    throw new InvalidOperationException("Epic HTTP " + (int)response.StatusCode + ": " + Text(error, "errorCode") + " " + Text(error, "errorMessage"));
                 }
             }
+            throw;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Token request failed: " + ex.Message);
-        }
-        return false;
     }
-
     public List<EpicGame> FetchLibrary()
     {
-        var games = new List<EpicGame>();
-        if (!IsLoggedIn && !RefreshSession())
-        {
-            return LoadCachedLibrary();
-        }
-
+        LibraryIsFresh = false;
         try
         {
-            // Set security protocol to TLS 1.2 which is required by Epic Games APIs
-            ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072; // TLS 1.2
-
-            string url = string.Format("https://entitlement-public-service-prod.ol.epicgames.com/entitlement/api/public/noauth/accounts/{0}/entitlements?start=0&count=5000", AccountId);
-            var request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = "GET";
-            request.Headers["Authorization"] = "bearer " + AccessToken;
-
-            string json = "";
-            using (var response = (HttpWebResponse)request.GetResponse())
-            using (var reader = new StreamReader(response.GetResponseStream(), Encoding.UTF8))
+            if (!IsLoggedIn) return LoadCachedLibrary();
+            if (DateTime.UtcNow >= expires && !RefreshSession()) return LoadCachedLibrary();
+            var assets = Items(json.DeserializeObject(Send("https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows?label=Live", null, false, true)));
+            var games = new List<EpicGame>();
+            foreach (var asset in assets)
             {
-                json = reader.ReadToEnd();
+                string app = Text(asset, "appName"), ns = Text(asset, "namespace"), id = Text(asset, "catalogItemId");
+                if (app.Length == 0 || id.Length == 0 || games.Exists(g => g.AppName == app)) continue;
+                var catalog = Map(json.DeserializeObject(Send("https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/" + Uri.EscapeDataString(ns) + "/bulk/items?id=" + Uri.EscapeDataString(id) + "&includeMainGameDetails=true&locale=ru", null, false, true)));
+                object item;
+                if (!catalog.TryGetValue(id, out item)) throw new InvalidDataException("Epic не вернул описание " + app);
+                var game = ParseCatalogItem(Map(item), app, ns, id);
+                if (game != null) games.Add(game);
             }
-
-            // Extract all entitlements (namespaces and catalogItemIds)
-            var entitlements = new List<Entitlement>();
-            var blocks = Regex.Matches(json, "\\{[^}]*\\}");
-            foreach (Match block in blocks)
-            {
-                string blockText = block.Value;
-                string itemId = ExtractJsonValue(blockText, "catalogItemId");
-                string ns = ExtractJsonValue(blockText, "namespace");
-                if (!string.IsNullOrEmpty(itemId) && !string.IsNullOrEmpty(ns))
-                {
-                    entitlements.Add(new Entitlement { CatalogItemId = itemId, Namespace = ns });
-                }
-            }
-
-            // Group entitlements by namespace to minimize bulk API queries
-            var grouped = new Dictionary<string, List<string>>();
-            foreach (var ent in entitlements)
-            {
-                if (!grouped.ContainsKey(ent.Namespace))
-                {
-                    grouped[ent.Namespace] = new List<string>();
-                }
-                grouped[ent.Namespace].Add(ent.CatalogItemId);
-            }
-
-            // Query catalog in batches for each namespace
-            foreach (var kvp in grouped)
-            {
-                string ns = kvp.Key;
-                List<string> ids = kvp.Value;
-
-                // Group IDs in chunks of 50 to avoid URL length issues
-                for (int i = 0; i < ids.Count; i += 50)
-                {
-                    var chunk = ids.GetRange(i, Math.Min(50, ids.Count - i));
-                    
-                    StringBuilder urlBuilder = new StringBuilder();
-                    urlBuilder.AppendFormat("https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/{0}/bulk/items?", ns);
-                    for (int j = 0; j < chunk.Count; j++)
-                    {
-                        if (j > 0) urlBuilder.Append("&");
-                        urlBuilder.Append("id=").Append(chunk[j]);
-                    }
-
-                    try
-                    {
-                        var catalogRequest = (HttpWebRequest)WebRequest.Create(urlBuilder.ToString());
-                        catalogRequest.Method = "GET";
-                        catalogRequest.Headers["Authorization"] = "bearer " + AccessToken;
-
-                        using (var catalogResponse = (HttpWebResponse)catalogRequest.GetResponse())
-                        using (var reader = new StreamReader(catalogResponse.GetResponseStream(), Encoding.UTF8))
-                        {
-                            string catalogJson = reader.ReadToEnd();
-                            ParseCatalogItems(catalogJson, ns, games);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Failed to fetch catalog chunk for namespace " + ns + ": " + ex.Message);
-                    }
-                }
-            }
-
-            if (games.Count > 0)
-            {
-                SaveLibraryCache(games);
-            }
+            SteamStoreMatcher.Enrich(games, Path.Combine(ConfigDir, "steam-matches.json"));
+            Directory.CreateDirectory(ConfigDir);
+            File.WriteAllText(LibraryCachePath, json.Serialize(games), Encoding.UTF8);
+            LibraryIsFresh = true; LastError = null; return games;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error fetching library: " + ex.Message);
-            return LoadCachedLibrary();
-        }
-
-        return games;
+        catch (Exception ex) { LastError = ex.Message; return LoadCachedLibrary(); }
     }
-
-    private void ParseCatalogItems(string json, string ns, List<EpicGame> games)
+    internal static EpicGame ParseCatalogItem(Dictionary<string, object> item, string app, string ns, string id)
     {
-        // Each catalog item is in a JSON block
-        var blocks = Regex.Matches(json, "\\{[^}]*\\}");
-        foreach (Match block in blocks)
+        if (ns == "ue" || app.StartsWith("UE_", StringComparison.OrdinalIgnoreCase)) return null;
+        foreach (var category in Items(Value(item, "categories")))
         {
-            string blockText = block.Value;
-            string id = ExtractJsonValue(blockText, "id");
-            string title = ExtractJsonValue(blockText, "title");
-            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(title))
-            {
-                continue;
-            }
-
-            // Exclude items that are DLCs or non-game content by checking title patterns or common namespaces
-            if (title.Contains("DLC") || title.Contains("Add-On") || title.Contains("Content Pack") || ns.Contains("editor") || title.Contains("Season Pass"))
-            {
-                continue;
-            }
-
-            // Extract AppName from customAttributes
-            string appName = "";
-            int idx = blockText.IndexOf("\"LaunchAppName\"");
-            if (idx != -1)
-            {
-                string subText = blockText.Substring(idx);
-                appName = ExtractJsonValue(subText, "value");
-            }
-            else
-            {
-                // Fallback to other possible fields
-                int appNameIdx = blockText.IndexOf("\"AppName\"");
-                if (appNameIdx != -1)
-                {
-                    appName = ExtractJsonValue(blockText.Substring(appNameIdx), "value");
-                }
-            }
-
-            if (string.IsNullOrEmpty(appName))
-            {
-                // If we can't find an AppName, it might not be a launchable game, or it is a library entry
-                continue;
-            }
-
-            // Prevent duplicate entries
-            bool exists = false;
-            foreach (var g in games)
-            {
-                if (g.AppName.Equals(appName, StringComparison.OrdinalIgnoreCase))
-                {
-                    exists = true;
-                    break;
-                }
-            }
-
-            if (!exists)
-            {
-                games.Add(new EpicGame
-                {
-                    AppName = appName,
-                    DisplayName = title,
-                    InstallLocation = "", // Remote, not installed locally
-                    LaunchExecutable = "",
-                    CatalogNamespace = ns,
-                    CatalogItemId = id,
-                    IsInstalled = false
-                });
-            }
+            string path = Text(category, "path").ToLowerInvariant();
+            if (path.Contains("dlc") || path.Contains("addons") || path.Contains("editors") || path.Contains("plugins")) return null;
         }
+        if (Text(item, "title").Length == 0) return null;
+        var game = new EpicGame { AppName = app, DisplayName = Text(item, "title"), CatalogNamespace = ns, CatalogItemId = id, InstallLocation = "", LaunchExecutable = "", IsInstalled = false };
+        string description = Text(item, "longDescription");
+        if (string.IsNullOrWhiteSpace(description)) description = Text(item, "description");
+        game.Description = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(
+            System.Text.RegularExpressions.Regex.Replace(description, @"<(br\s*/?|/p|/div)\s*>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase), "<[^>]*>", "")).Trim();
+        game.Developer = Text(item, "developer");
+        game.DescriptionSource = "Epic Games";
+        game.Publisher = Text(item, "publisher");
+        foreach (var image in Items(Value(item, "keyImages")))
+        {
+            string type = Text(image, "type").ToLowerInvariant(), url = Text(image, "url");
+            if (type.Contains("tall") || type.Contains("vertical")) game.PortraitUrl = url;
+            else if (type.Contains("wide") || type.Contains("horizontal")) game.LandscapeUrl = url;
+            if (game.LandscapeUrl == null && type == "dieselgamebox") game.LandscapeUrl = url;
+        }
+        return game;
     }
-
-    private void SaveCredentials()
+    public List<EpicGame> LoadCachedLibrary()
     {
-        try
-        {
-            if (!Directory.Exists(ConfigDir))
-            {
-                Directory.CreateDirectory(ConfigDir);
-            }
-
-            string json = string.Format(
-                "{{\n  \"access_token\": \"{0}\",\n  \"refresh_token\": \"{1}\",\n  \"account_id\": \"{2}\",\n  \"displayName\": \"{3}\"\n}}",
-                AccessToken, RefreshToken, AccountId, DisplayName
-            );
-
-            byte[] plaintextBytes = Encoding.UTF8.GetBytes(json);
-            byte[] encryptedBytes = System.Security.Cryptography.ProtectedData.Protect(
-                plaintextBytes,
-                null,
-                System.Security.Cryptography.DataProtectionScope.CurrentUser
-            );
-
-            File.WriteAllBytes(CredentialsPath, encryptedBytes);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Failed to save credentials: " + ex.Message);
-        }
-    }
-
-    private void LoadCredentials()
-    {
-        try
-        {
-            if (File.Exists(CredentialsPath))
-            {
-                byte[] encryptedBytes = File.ReadAllBytes(CredentialsPath);
-                string json = null;
-
-                try
-                {
-                    byte[] plaintextBytes = System.Security.Cryptography.ProtectedData.Unprotect(
-                        encryptedBytes,
-                        null,
-                        System.Security.Cryptography.DataProtectionScope.CurrentUser
-                    );
-                    json = Encoding.UTF8.GetString(plaintextBytes);
-                }
-                catch
-                {
-                    // Fallback to reading as plaintext in case it's an old unencrypted file
-                    try
-                    {
-                        json = Encoding.UTF8.GetString(encryptedBytes);
-                    }
-                    catch { }
-                }
-
-                if (!string.IsNullOrEmpty(json))
-                {
-                    AccessToken = ExtractJsonValue(json, "access_token");
-                    RefreshToken = ExtractJsonValue(json, "refresh_token");
-                    AccountId = ExtractJsonValue(json, "account_id");
-                    DisplayName = ExtractJsonValue(json, "displayName");
-
-                    if (!string.IsNullOrEmpty(RefreshToken))
-                    {
-                        IsLoggedIn = true;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            IsLoggedIn = false;
-        }
-    }
-
-    private List<EpicGame> LoadCachedLibrary()
-    {
-        var list = new List<EpicGame>();
         try
         {
             if (File.Exists(LibraryCachePath))
             {
-                string json = File.ReadAllText(LibraryCachePath, Encoding.UTF8);
-                var matches = Regex.Matches(json, "\\{[^}]*\\}");
-                foreach (Match match in matches)
-                {
-                    string text = match.Value;
-                    string appName = ExtractJsonValue(text, "AppName");
-                    string displayName = ExtractJsonValue(text, "DisplayName");
-                    if (!string.IsNullOrEmpty(appName) && !string.IsNullOrEmpty(displayName))
-                    {
-                        list.Add(new EpicGame
-                        {
-                            AppName = appName,
-                            DisplayName = displayName,
-                            IsInstalled = false
-                        });
-                    }
-                }
+                var games = json.Deserialize<List<EpicGame>>(File.ReadAllText(LibraryCachePath, Encoding.UTF8)) ?? new List<EpicGame>();
+                games.RemoveAll(g => g.CatalogNamespace == "ue" || (g.AppName ?? "").StartsWith("UE_", StringComparison.OrdinalIgnoreCase));
+                return games;
             }
         }
-        catch { }
-        return list;
+        catch (Exception ex) { LastError = "Кэш повреждён: " + ex.Message; }
+        return new List<EpicGame>();
     }
-
-    private void SaveLibraryCache(List<EpicGame> games)
+    public void Logout()
     {
-        try
-        {
-            if (!Directory.Exists(ConfigDir))
-            {
-                Directory.CreateDirectory(ConfigDir);
-            }
-
-            StringBuilder sb = new StringBuilder();
-            sb.Append("[\n");
-            for (int i = 0; i < games.Count; i++)
-            {
-                sb.AppendFormat("  {{\n    \"AppName\": \"{0}\",\n    \"DisplayName\": \"{1}\"\n  }}", 
-                    games[i].AppName.Replace("\"", "\\\""), 
-                    games[i].DisplayName.Replace("\"", "\\\""));
-                
-                if (i < games.Count - 1) sb.Append(",\n");
-                else sb.Append("\n");
-            }
-            sb.Append("]");
-
-            File.WriteAllText(LibraryCachePath, sb.ToString(), Encoding.UTF8);
-        }
-        catch { }
+        AccessToken = RefreshToken = AccountId = DisplayName = null; expires = DateTime.MinValue;
+        if (File.Exists(CredentialsPath)) File.Delete(CredentialsPath);
+        if (File.Exists(LibraryCachePath)) File.Delete(LibraryCachePath);
     }
-
-    private static string ExtractJsonValue(string json, string key)
+    static object Value(Dictionary<string, object> map, string key) { object value; return map.TryGetValue(key, out value) ? value : null; }
+    static Dictionary<string, object> Map(object value) { return value as Dictionary<string, object> ?? new Dictionary<string, object>(); }
+    static string Text(Dictionary<string, object> map, string key) { return Convert.ToString(Value(map, key)) ?? ""; }
+    static IEnumerable<Dictionary<string, object>> Items(object value)
     {
-        var match = Regex.Match(json, "\"" + key + "\"\\s*:\\s*\"([^\"]*)\"");
-        return match.Success ? match.Groups[1].Value : "";
-    }
-
-    private class Entitlement
-    {
-        public string Namespace { get; set; }
-        public string CatalogItemId { get; set; }
+        var list = value as IEnumerable;
+        if (list != null) foreach (object item in list) if (item is Dictionary<string, object>) yield return Map(item);
     }
 }

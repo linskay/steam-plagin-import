@@ -5,3 +5,6 @@ SteamEpicSync.exe
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+millennium-plugin/node_modules/
+millennium-plugin/.millennium/

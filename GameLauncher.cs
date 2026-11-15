@@ -16,7 +16,8 @@ public class GameLauncher
         {
             // The game is not installed locally. Check if we can find it in the online account library cache
             var epicApi = new EpicApiManager();
-            var library = epicApi.FetchLibrary();
+            var library = epicApi.LoadCachedLibrary();
+            if (library.Count == 0) library = epicApi.FetchLibrary();
             game = library.Find(g => g.AppName.Equals(appName, StringComparison.OrdinalIgnoreCase));
 
             if (game == null)
@@ -26,7 +27,7 @@ public class GameLauncher
             }
 
             Console.WriteLine(game.DisplayName + " is not installed. Launching installation in Epic Games Store...");
-            
+
             // Construct the EGS installation/launch URI
             string installUri = "";
             if (!string.IsNullOrEmpty(game.CatalogNamespace) && !string.IsNullOrEmpty(game.CatalogItemId))
@@ -178,11 +179,11 @@ public class GameLauncher
         Console.WriteLine("Game has closed.");
 
         // 8. If EGS wasn't running before, terminate it to save resources
-        if (!egsWasRunning)
+        if (!egsWasRunning && Program.GetCloseEgsSetting())
         {
             // Give the game process a couple of seconds to fully clean up
             Thread.Sleep(2000);
-            
+
             Console.WriteLine("Closing Epic Games Launcher to free system resources...");
             TerminateEgsProcesses();
         }
@@ -191,7 +192,7 @@ public class GameLauncher
     private static bool IsAnyProcessRunning(HashSet<string> processNames)
     {
         if (processNames == null || processNames.Count == 0) return false;
-        
+
         foreach (var name in processNames)
         {
             try

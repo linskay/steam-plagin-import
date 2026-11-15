@@ -93,13 +93,13 @@ public class VdfParser
             byte[] bytes = File.ReadAllBytes(filePath);
             int pos = 0;
 
-            if (bytes.Length < 10) return shortcuts;
+            if (bytes.Length < 11 || bytes[bytes.Length - 1] != 0x08) throw new InvalidDataException("Truncated VDF root.");
 
             byte rootType = bytes[pos++];
-            if (rootType != 0x00) return shortcuts;
+            if (rootType != 0x00) throw new InvalidDataException("Invalid VDF root type.");
 
             string rootKey = ReadNullTerminatedString(bytes, ref pos);
-            if (rootKey != "shortcuts") return shortcuts;
+            if (rootKey != "shortcuts") throw new InvalidDataException("Invalid VDF root name.");
 
             while (pos < bytes.Length)
             {
@@ -107,6 +107,7 @@ public class VdfParser
                 if (type == 0x08)
                     break;
 
+                if (type != 0x00) throw new InvalidDataException("Invalid VDF shortcut type.");
                 string index = ReadNullTerminatedString(bytes, ref pos);
                 var shortcut = new SteamShortcut { Index = index };
                 shortcut.Fields = ReadMapContent(bytes, ref pos);
@@ -115,7 +116,7 @@ public class VdfParser
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Error reading shortcuts.vdf: " + ex.Message);
+            throw new InvalidDataException("Файл shortcuts.vdf поврежден. Запись отменена для защиты существующих ярлыков.", ex);
         }
 
         return shortcuts;
@@ -128,11 +129,11 @@ public class VdfParser
         {
             byte type = bytes[pos++];
             if (type == 0x08)
-                break;
+                return dict;
 
-            if (pos >= bytes.Length) break;
+            if (pos >= bytes.Length) throw new InvalidDataException("Truncated VDF field.");
             string key = ReadNullTerminatedString(bytes, ref pos);
-            
+
             if (type == 0x01)
             {
                 string val = ReadNullTerminatedString(bytes, ref pos);
@@ -140,6 +141,7 @@ public class VdfParser
             }
             else if (type == 0x02)
             {
+                if (pos + 4 > bytes.Length) throw new InvalidDataException("Truncated VDF integer.");
                 if (pos + 4 <= bytes.Length)
                 {
                     int val = BitConverter.ToInt32(bytes, pos);
@@ -149,6 +151,7 @@ public class VdfParser
             }
             else if (type == 0x07)
             {
+                if (pos + 8 > bytes.Length) throw new InvalidDataException("Truncated VDF integer.");
                 if (pos + 8 <= bytes.Length)
                 {
                     long val = BitConverter.ToInt64(bytes, pos);
@@ -162,21 +165,21 @@ public class VdfParser
             }
             else
             {
-                // Unrecognized type. Since we don't know the length, we must stop parsing to avoid reading garbage.
-                break;
+                throw new InvalidDataException("Unsupported VDF field type: " + type);
             }
         }
-        return dict;
+        throw new InvalidDataException("Unterminated VDF map.");
     }
 
     private static string ReadNullTerminatedString(byte[] bytes, ref int pos)
     {
-        if (pos >= bytes.Length) return "";
+        if (pos >= bytes.Length) throw new InvalidDataException("Truncated VDF string.");
         int start = pos;
         while (pos < bytes.Length && bytes[pos] != 0)
         {
             pos++;
         }
+        if (pos >= bytes.Length) throw new InvalidDataException("Unterminated VDF string.");
         string val = Encoding.UTF8.GetString(bytes, start, pos - start);
         if (pos < bytes.Length) pos++;
         return val;
@@ -206,10 +209,15 @@ public class VdfParser
                 bw.Write((byte)0x08);
             }
 
-            bw.Write((byte)0x08);
+            bw.Write((byte)0x08); // Close the named shortcuts object.
+            bw.Write((byte)0x08); // Close the outer Binary KeyValues document.
             bw.Flush();
 
-            File.WriteAllBytes(filePath, ms.ToArray());
+            string temp = filePath + ".tmp";
+            File.WriteAllBytes(temp, ms.ToArray());
+            if (File.Exists(filePath))
+                File.Replace(temp, filePath, filePath + ".bak");
+            else File.Move(temp, filePath);
         }
     }
 

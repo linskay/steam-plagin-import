@@ -1,44 +1,28 @@
 using System;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Navigation;
-
 public class LoginWindow : Window
 {
-    private WebBrowser webBrowser;
     public string AuthorizationCode { get; private set; }
-
     public LoginWindow()
     {
-        Title = "Вход в аккаунт Epic Games";
-        Width = 520;
-        Height = 680;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        ResizeMode = ResizeMode.NoResize;
-
-        webBrowser = new WebBrowser();
-        webBrowser.Navigating += WebBrowser_Navigating;
-        Content = webBrowser;
-
-        // Force navigating to Epic login page
-        webBrowser.Navigate(EpicApiManager.GetLoginUrl());
-    }
-
-    private void WebBrowser_Navigating(object sender, NavigatingCancelEventArgs e)
-    {
-        if (e.Uri == null) return;
-
-        string url = e.Uri.ToString();
-        if (url.Contains("https://www.epicgames.com/id/api/redirect"))
-        {
-            var query = e.Uri.Query;
-            var match = System.Text.RegularExpressions.Regex.Match(query, "[?&]code=([^&]+)");
-            if (match.Success)
-            {
-                AuthorizationCode = match.Groups[1].Value;
-                DialogResult = true;
-                Close();
-            }
-        }
+        Title = "Подключение Epic Games"; Width = 560; Height = 330;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        var panel = new StackPanel { Margin = new Thickness(24) };
+        panel.Children.Add(new TextBlock { Text = "1. Откройте Epic в браузере и войдите.\n2. Скопируйте authorizationCode из ответа страницы.\n3. Вставьте код или весь JSON ниже. Код одноразовый.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 16) });
+        var open = new Button { Content = "Открыть вход Epic Games", Margin = new Thickness(0, 0, 0, 16) };
+        open.Click += (s, e) => { try { Process.Start(new ProcessStartInfo(EpicApiManager.GetLoginUrl()) { UseShellExecute = true }); } catch (Exception ex) { MessageBox.Show(this, ex.Message); } };
+        panel.Children.Add(open);
+        var input = new TextBox { Height = 60, TextWrapping = TextWrapping.Wrap, AcceptsReturn = true }; panel.Children.Add(input);
+        var submit = new Button { Content = "Подключить", Margin = new Thickness(0, 16, 0, 0) };
+        submit.Click += (s, e) => {
+            try {
+                string code = EpicApiManager.ParseAuthorizationCode(input.Text);
+                if (string.IsNullOrEmpty(code)) throw new FormatException("Вставьте authorizationCode, JSON ответа или адрес с параметром code.");
+                AuthorizationCode = code; DialogResult = true;
+            } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Проверьте код"); }
+        };
+        panel.Children.Add(submit); Content = panel;
     }
 }

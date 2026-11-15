@@ -14,6 +14,13 @@ public class EpicGame
     public string CatalogNamespace { get; set; }
     public string CatalogItemId { get; set; }
     public bool IsInstalled { get; set; }
+    public string PortraitUrl { get; set; }
+    public string LandscapeUrl { get; set; }
+    public string Description { get; set; }
+    public string DescriptionSource { get; set; }
+    public string Developer { get; set; }
+    public string Publisher { get; set; }
+    public string SteamAppId { get; set; }
 }
 
 public class Crc32
@@ -52,6 +59,18 @@ public class Crc32
 
 public class EpicSyncManager
 {
+    public static List<EpicGame> GetLibrary(EpicApiManager api, bool online)
+    {
+        var games = online ? api.FetchLibrary() : api.LoadCachedLibrary();
+        foreach (var installed in FindInstalledGames())
+        {
+            var remote = games.Find(g => g.AppName.Equals(installed.AppName, StringComparison.OrdinalIgnoreCase));
+            if (remote == null) games.Add(installed);
+            else { remote.IsInstalled = true; remote.InstallLocation = installed.InstallLocation; remote.LaunchExecutable = installed.LaunchExecutable; }
+        }
+        return games;
+    }
+
     public static List<EpicGame> FindInstalledGames()
     {
         var games = new List<EpicGame>();
@@ -67,7 +86,7 @@ public class EpicSyncManager
             {
                 string json = File.ReadAllText(file);
                 string launchExecutable = ExtractJsonString(json, "LaunchExecutable");
-                
+
                 // If LaunchExecutable is empty, it's not a launchable game (e.g. DLC or engine component)
                 if (string.IsNullOrEmpty(launchExecutable))
                     continue;
@@ -132,7 +151,7 @@ public class EpicSyncManager
         {
             path = @"C:\Program Files (x86)\Steam";
         }
-        
+
         return path;
     }
 
@@ -166,21 +185,23 @@ public class EpicSyncManager
         return "";
     }
 
-    public static string Sync(string currentExePath, List<EpicGame> epicGames, out int addedCount, out int removedCount)
+    public static string Sync(string currentExePath, List<EpicGame> epicGames, out int addedCount, out int removedCount, bool removeMissing = false)
     {
         addedCount = 0;
         removedCount = 0;
-        
+
+        if (System.Diagnostics.Process.GetProcessesByName("steam").Length > 0)
+            throw new InvalidOperationException("Полностью закройте Steam через меню Steam → Выход, выполните синхронизацию и откройте Steam снова. Утилита останется в трее.");
         string steamPath = GetSteamPath();
         string userdataPath = Path.Combine(steamPath, "userdata");
         if (!Directory.Exists(userdataPath))
         {
-            return "Steam userdata folder not found.";
+            throw new DirectoryNotFoundException("Не найдена папка Steam userdata. Войдите в Steam хотя бы один раз.");
         }
 
         string currentExeDir = Path.GetDirectoryName(currentExePath);
         string quotedCurrentExe = "\"" + currentExePath + "\"";
-        string quotedCurrentExeDir = "\"" + currentExeDir + "\\\"";
+        string quotedCurrentExeDir = "\"" + currentExeDir + "\"";
 
         var userDirs = Directory.GetDirectories(userdataPath);
         StringBuilder sb = new StringBuilder();
@@ -188,7 +209,7 @@ public class EpicSyncManager
         foreach (var userDir in userDirs)
         {
             string userId = Path.GetFileName(userDir);
-            if (!Regex.IsMatch(userId, @"^\d+$")) continue; // Only numeric IDs
+            if (userId == "0" || !Regex.IsMatch(userId, @"^\d+$")) continue; // Only numeric IDs
 
             string shortcutsFile = Path.Combine(userDir, @"config\shortcuts.vdf");
             var shortcuts = VdfParser.ReadShortcuts(shortcutsFile);
@@ -197,14 +218,14 @@ public class EpicSyncManager
             var finalShortcuts = new List<SteamShortcut>();
             foreach (var s in shortcuts)
             {
-                bool isManagedByUs = s.Exe.Equals(quotedCurrentExe, StringComparison.OrdinalIgnoreCase) && 
+                bool isManagedByUs = s.Exe.Equals(quotedCurrentExe, StringComparison.OrdinalIgnoreCase) &&
                                      s.LaunchOptions.StartsWith("--launch ", StringComparison.OrdinalIgnoreCase);
 
                 if (isManagedByUs)
                 {
                     string appNameArg = s.LaunchOptions.Substring("--launch ".Length).Trim('\"', ' ');
                     bool stillExists = epicGames.Exists(g => g.AppName.Equals(appNameArg, StringComparison.OrdinalIgnoreCase));
-                    if (!stillExists)
+                    if (removeMissing && !stillExists)
                     {
                         removedCount++;
                         continue; // Skip, which removes it
@@ -217,9 +238,9 @@ public class EpicSyncManager
             foreach (var game in epicGames)
             {
                 string launchArgs = "--launch \"" + game.AppName + "\"";
-                
+
                 // Check if already in shortcuts
-                var existing = finalShortcuts.Find(s => 
+                var existing = finalShortcuts.Find(s =>
                     s.Exe.Equals(quotedCurrentExe, StringComparison.OrdinalIgnoreCase) &&
                     s.LaunchOptions.Equals(launchArgs, StringComparison.OrdinalIgnoreCase));
 
@@ -230,6 +251,11 @@ public class EpicSyncManager
                 }
 
                 int appid = CalculateAppId(quotedCurrentExe, game.DisplayName);
+                string gridDir = Path.Combine(userDir, "config", "grid");
+                try { SteamArtwork.Save(gridDir, unchecked((uint)appid), game); }
+                catch (Exception artError) { sb.AppendLine("Обложка " + game.DisplayName + ": " + artError.Message); }
+                string artworkIcon = SteamArtwork.IconPath(gridDir, unchecked((uint)appid));
+                if (File.Exists(artworkIcon)) gameIcon = artworkIcon;
 
                 if (existing == null)
                 {
@@ -241,13 +267,13 @@ public class EpicSyncManager
                     newShortcut.Icon = gameIcon;
                     newShortcut.LaunchOptions = launchArgs;
                     newShortcut.AppId = appid;
-                    
+
                     newShortcut.Fields["AllowOverlay"] = 1;
                     newShortcut.Fields["AllowDesktopConfig"] = 1;
-                    
+
                     // Add "Epic Games" tag
                     var tags = new Dictionary<string, object>();
-                    tags["0"] = "Epic Games";
+                    tags["0"] = SteamCollection.Name;
                     newShortcut.Fields["tags"] = tags;
 
                     finalShortcuts.Add(newShortcut);
@@ -259,6 +285,13 @@ public class EpicSyncManager
                     existing.Icon = gameIcon;
                     existing.AppId = appid;
                     existing.AppName = game.DisplayName;
+                    existing.StartDir = quotedCurrentExeDir;
+                    object tagObject;
+                    var existingTags = existing.Fields.TryGetValue("tags", out tagObject) ? tagObject as Dictionary<string, object> : null;
+                    if (existingTags == null) { existingTags = new Dictionary<string, object>(); existing.Fields["tags"] = existingTags; }
+                    foreach (string tagKey in new List<string>(existingTags.Keys))
+                        if (Convert.ToString(existingTags[tagKey]) == "Epic Games") existingTags[tagKey] = SteamCollection.Name;
+                    if (!existingTags.ContainsValue(SteamCollection.Name)) existingTags[existingTags.Count.ToString()] = SteamCollection.Name;
                 }
             }
 
@@ -266,18 +299,23 @@ public class EpicSyncManager
             try
             {
                 VdfParser.WriteShortcuts(shortcutsFile, finalShortcuts);
+                SteamCollection.Update(Path.Combine(userDir, "config"), finalShortcuts.FindAll(s =>
+                    s.Exe.Equals(quotedCurrentExe, StringComparison.OrdinalIgnoreCase) &&
+                    s.LaunchOptions.StartsWith("--launch ", StringComparison.OrdinalIgnoreCase)));
+                SteamUiSnapshot.Save(steamPath, userId, quotedCurrentExe, epicGames);
                 sb.AppendLine("Synced " + epicGames.Count + " games for user ID " + userId);
             }
             catch (Exception ex)
             {
-                sb.AppendLine("Error writing shortcuts.vdf for user ID " + userId + ": " + ex.Message);
+                throw new IOException("Не удалось сохранить ярлыки Steam для " + userId, ex);
             }
         }
 
+        if (sb.Length == 0) throw new InvalidOperationException("Не найден профиль Steam в userdata.");
         return sb.ToString();
     }
 
-    private static int CalculateAppId(string exe, string appName)
+    public static int CalculateAppId(string exe, string appName)
     {
         string key = exe + appName;
         byte[] bytes = Encoding.UTF8.GetBytes(key);

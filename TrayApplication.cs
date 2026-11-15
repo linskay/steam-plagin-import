@@ -14,22 +14,24 @@ public class TrayApplication : ApplicationContext
     private ToolStripMenuItem openItem;
     private ToolStripMenuItem startupItem;
     private ToolStripMenuItem exitItem;
-    
+
     private string currentExePath;
     private Action onSyncRequested;
     private Action onShowDashboardRequested;
     private Func<bool> checkStartupStatus;
     private Action<bool> toggleStartupStatus;
 
-    private System.Threading.Timer steamMonitorTimer;
-    private int checkFailCount = 0;
+    private System.Windows.Forms.Timer steamMonitorTimer;
+    private bool hasSeenSteam;
+
 
     public TrayApplication(
-        string exePath, 
-        Action onSync, 
+        string exePath,
+        Action onSync,
         Action onShowDashboard,
         Func<bool> checkStartup,
-        Action<bool> toggleStartup)
+        Action<bool> toggleStartup,
+        bool steamSession = false)
     {
         currentExePath = exePath;
         onSyncRequested = onSync;
@@ -39,8 +41,14 @@ public class TrayApplication : ApplicationContext
 
         InitializeTray();
 
-        // Start checking if Steam is running every 5 seconds
-        steamMonitorTimer = new System.Threading.Timer(CheckSteamProcess, null, 5000, 5000);
+        hasSeenSteam = steamSession || SteamSession.IsRunning();
+        steamMonitorTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+        steamMonitorTimer.Tick += (s, e) => {
+            bool running = SteamSession.IsRunning();
+            if (running) { hasSeenSteam = true; SteamSession.AcknowledgeSteamStarted(); }
+            if (SteamSession.ShouldExit(hasSeenSteam, running, SteamSession.Restarting, SteamSession.InRestartGrace)) Exit();
+        };
+        steamMonitorTimer.Start();
     }
 
     private void InitializeTray()
@@ -49,9 +57,9 @@ public class TrayApplication : ApplicationContext
 
         openItem = new ToolStripMenuItem("Панель управления", null, (s, e) => { if (onShowDashboardRequested != null) onShowDashboardRequested(); });
         openItem.Font = new Font(openItem.Font, FontStyle.Bold);
-        
+
         syncItem = new ToolStripMenuItem("Синхронизировать сейчас", null, (s, e) => { if (onSyncRequested != null) onSyncRequested(); });
-        
+
         startupItem = new ToolStripMenuItem("Запуск при старте Windows", null, (s, e) => {
             bool current = startupItem.Checked;
             startupItem.Checked = !current;
@@ -125,38 +133,6 @@ public class TrayApplication : ApplicationContext
         if (startupItem != null && checkStartupStatus != null)
         {
             startupItem.Checked = checkStartupStatus();
-        }
-    }
-
-    private void CheckSteamProcess(object state)
-    {
-        try
-        {
-            var steamProcesses = Process.GetProcessesByName("steam");
-            if (steamProcesses.Length == 0)
-            {
-                checkFailCount++;
-                // If Steam is missing for 6 consecutive checks (30 seconds), exit
-                if (checkFailCount >= 6)
-                {
-                    if (notifyIcon != null && notifyIcon.ContextMenuStrip != null && notifyIcon.ContextMenuStrip.InvokeRequired)
-                    {
-                        notifyIcon.ContextMenuStrip.Invoke(new MethodInvoker(Exit));
-                    }
-                    else
-                    {
-                        Exit();
-                    }
-                }
-            }
-            else
-            {
-                checkFailCount = 0;
-            }
-        }
-        catch
-        {
-            // ignore
         }
     }
 

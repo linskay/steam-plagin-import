@@ -1,0 +1,19 @@
+[plugin]
+id = "com.linskay.steamepicsync"
+name = "Steam Epic Sync"
+version = "1.0.0"
+author = "linskay"
+description = "Local Epic library descriptions and installed-game highlighting. Updated only during synchronization."
+
+[backend]
+entry = "backend/main.lua"
+sources = ["backend/**/*.lua"]
+
+[frontend]
+entry = "frontend/index.tsx"
+
+[webkit]
+entry = "webview/preload.ts"
+
+[compiler]
+output_path = "dist/com.linskay.steamepicsync.star"

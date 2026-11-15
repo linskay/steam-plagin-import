@@ -1,0 +1,16 @@
+{
+  "name": "steam-epic-sync-ui",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "starlight pack --release",
+    "prepare": "starlight lsp"
+  },
+  "devDependencies": {
+    "@steambrew/starlight": "1.1.3",
+    "@types/react": "19.1.1",
+    "@types/react-dom": "19.1.1",
+    "jsdom": "^27.2.0",
+    "typescript": "^5.9.3"
+  }
+}

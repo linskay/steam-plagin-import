@@ -11,12 +11,15 @@ using System.Collections.Generic;
 public class MainWindowController
 {
     public Window Window { get; private set; }
-    
+
     private Button syncBtn;
     private Button minBtn;
     private Button closeBtn;
     private CheckBox startupChk;
     private CheckBox closeEgsChk;
+    private CheckBox steamStartupChk;
+    private CheckBox startupSyncChk;
+    private TextBox collectionNameBox;
     private ListBox gamesListBox;
     private TextBlock statusTxt;
 
@@ -24,7 +27,7 @@ public class MainWindowController
     private TextBlock epicStatusTxt;
     private EpicApiManager epicApi;
     private Button uninstallBtn;
-    
+
     private string currentExePath;
     private bool hasShownTrayMessage = false;
 
@@ -68,7 +71,7 @@ public class MainWindowController
         {
             xamlPath = "MainWindow.xaml";
         }
-        
+
         using (var fs = new FileStream(xamlPath, FileMode.Open, FileAccess.Read))
         {
             Window = (Window)XamlReader.Load(fs);
@@ -83,6 +86,20 @@ public class MainWindowController
         closeBtn = (Button)Window.FindName("CloseBtn");
         startupChk = (CheckBox)Window.FindName("StartupChk");
         closeEgsChk = (CheckBox)Window.FindName("CloseEgsChk");
+        steamStartupChk = (CheckBox)Window.FindName("SteamStartupChk");
+        startupSyncChk = (CheckBox)Window.FindName("StartupSyncChk");
+        collectionNameBox = (TextBox)Window.FindName("CollectionNameBox");
+        RefreshSettings();
+        ((Button)Window.FindName("SaveSettingsBtn")).Click += (s, e) => {
+            try {
+                var settings = AppSettings.Load();
+                settings.LaunchWithSteam = steamStartupChk.IsChecked == true;
+                settings.SyncOnSteamStart = startupSyncChk.IsChecked == true;
+                settings.CollectionName = collectionNameBox.Text;
+                settings.Save();
+                ((TextBlock)Window.FindName("SettingsMessage")).Text = "Сохранено. Название коллекции применяется при синхронизации.";
+            } catch (Exception ex) { MessageBox.Show(Window, ex.Message, "Настройки"); }
+        };
         gamesListBox = (ListBox)Window.FindName("GamesListBox");
         statusTxt = (TextBlock)Window.FindName("StatusTxt");
 
@@ -159,7 +176,7 @@ public class MainWindowController
                     if (loginWin.ShowDialog() == true && !string.IsNullOrEmpty(loginWin.AuthorizationCode))
                     {
                         statusTxt.Text = "Подключение к Epic Games...";
-                        
+
                         // Perform API login asynchronously or synchronously since it's quick
                         bool success = false;
                         try
@@ -174,11 +191,11 @@ public class MainWindowController
                         if (success)
                         {
                             UpdateEpicAccountStatus();
-                            RefreshData();
+                            RefreshData(); TriggerSync();
                         }
                         else
                         {
-                            MessageBox.Show(Window, "Не удалось подключиться к аккаунту Epic Games.", "Ошибка авторизации", MessageBoxButton.OK, MessageBoxImage.Error);
+                            MessageBox.Show(Window, "Не удалось подключиться к аккаунту Epic Games.\n" + epicApi.LastError, "Ошибка авторизации", MessageBoxButton.OK, MessageBoxImage.Error);
                             statusTxt.Text = "Ошибка входа в Epic Games";
                         }
                     }
@@ -194,6 +211,14 @@ public class MainWindowController
                 TriggerUninstall();
             };
         }
+    }
+
+    public void RefreshSettings()
+    {
+        var settings = AppSettings.Load();
+        if (steamStartupChk != null) steamStartupChk.IsChecked = settings.LaunchWithSteam;
+        if (startupSyncChk != null) startupSyncChk.IsChecked = settings.SyncOnSteamStart;
+        if (collectionNameBox != null) collectionNameBox.Text = settings.CollectionName;
     }
 
     private void UpdateEpicAccountStatus()
@@ -217,38 +242,7 @@ public class MainWindowController
 
     private List<EpicGame> GetCombinedGamesList()
     {
-        var games = new List<EpicGame>();
-        var installed = EpicSyncManager.FindInstalledGames();
-        games.AddRange(installed);
-
-        if (epicApi != null && epicApi.IsLoggedIn)
-        {
-            try
-            {
-                var remote = epicApi.FetchLibrary();
-                foreach (var rg in remote)
-                {
-                    bool isInstalled = false;
-                    foreach (var ig in installed)
-                    {
-                        if (ig.AppName.Equals(rg.AppName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            isInstalled = true;
-                            break;
-                        }
-                    }
-                    if (!isInstalled)
-                    {
-                        games.Add(rg);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error getting remote library: " + ex.Message);
-            }
-        }
-        return games;
+        return EpicSyncManager.GetLibrary(epicApi, false);
     }
 
     public void RefreshData()
@@ -261,7 +255,7 @@ public class MainWindowController
             {
                 if (g.IsInstalled) installedCount++;
             }
-            
+
             statusTxt.Text = string.Format("Игр в библиотеке: {0} (Установлено: {1})", games.Count, installedCount);
 
             gamesListBox.Items.Clear();
@@ -378,7 +372,7 @@ public class MainWindowController
                     };
                     statusLabel.Child = statusLabelText;
                 }
-                
+
                 Grid.SetColumn(statusLabel, 2);
                 grid.Children.Add(statusLabel);
 
@@ -410,18 +404,19 @@ public class MainWindowController
         {
             try
             {
-                var games = GetCombinedGamesList();
                 int added, removed;
-                string res = EpicSyncManager.Sync(currentExePath, games, out added, out removed);
+                string res = SteamSession.Synchronize(currentExePath, epicApi, out added, out removed);
 
                 Window.Dispatcher.Invoke(() =>
                 {
                     statusTxt.Text = string.Format("Синхронизация завершена. Добавлено: {0}, Удалено: {1}", added, removed);
                     syncBtn.IsEnabled = true;
                     RefreshData();
+                    statusTxt.Text = string.IsNullOrEmpty(epicApi.LastError) ? "Готово. Откройте Steam." : "Использован кэш: " + epicApi.LastError;
+                    if (res.Contains("Обложка ")) MessageBox.Show(Window, res, "Результат синхронизации");
 
                     Program.ShowTrayBalloon("Синхронизация успешна",
-                        string.Format("Синхронизировано игр: {0}.\nПожалуйста, перезапустите Steam, если он запущен.", games.Count));
+                        string.Format("Добавлено игр: {0}. Библиотека обновлена.", added));
                 });
             }
             catch (Exception ex)
@@ -469,7 +464,7 @@ public class MainWindowController
 
                 // 3. Clear Steam shortcuts (pass empty list to delete all ours)
                 int added, removed;
-                EpicSyncManager.Sync(currentExePath, new List<EpicGame>(), out added, out removed);
+                EpicSyncManager.Sync(currentExePath, new List<EpicGame>(), out added, out removed, true);
 
                 // 4. Delete local AppData folder
                 string localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");

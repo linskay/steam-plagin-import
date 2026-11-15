@@ -9,21 +9,36 @@ public static class Program
     private static MainWindowController controller;
     private static string exePath;
     private static System.Threading.Mutex appMutex;
+    private static System.Threading.EventWaitHandle startupEvent;
+    private static System.Threading.Timer launchLifetime;
+    private static int startupSteamPid;
 
     [STAThread]
     public static void Main(string[] args)
     {
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        
+
         exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
-        SetBrowserEmulationKey();
+
 
         // Parse command line arguments
         if (args.Length > 0)
         {
+            if (args[0] == "--steam-bootstrap")
+            {
+                try { SteamBootstrap.Start(exePath); }
+                catch (Exception ex) {
+                    string directory = Path.GetDirectoryName(AppSettings.ConfigPath); Directory.CreateDirectory(directory);
+                    File.WriteAllText(Path.Combine(directory, "startup-error.log"), ex.ToString());
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
             if (args[0].Equals("--launch", StringComparison.OrdinalIgnoreCase) && args.Length > 1)
             {
+                bool steamWasRunning = SteamSession.IsRunning();
+                launchLifetime = new System.Threading.Timer(_ => { if (SteamSession.ShouldExit(steamWasRunning, SteamSession.IsRunning(), false, false)) Environment.Exit(0); }, null, 1000, 1000);
                 // Run in headless game launcher mode
                 string gameName = args[1];
                 GameLauncher.LaunchAndMonitor(gameName);
@@ -31,12 +46,16 @@ public static class Program
             }
             else if (args[0].Equals("--sync-silent", StringComparison.OrdinalIgnoreCase))
             {
-                // Run in headless silent sync mode
-                var games = EpicSyncManager.FindInstalledGames();
-                int added, removed;
-                string log = EpicSyncManager.Sync(exePath, games, out added, out removed);
-                Console.WriteLine(log);
-                Console.WriteLine(string.Format("Sync complete. Added: {0}, Removed: {1}", added, removed));
+                try
+                {
+                    var api = new EpicApiManager();
+                    int added, removed;
+                    string log = SteamSession.Synchronize(exePath, api, out added, out removed);
+                    string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
+                    Directory.CreateDirectory(logDir);
+                    File.WriteAllText(Path.Combine(logDir, "last-sync.log"), log + "\n" + api.LastError);
+                }
+                catch (Exception ex) { Environment.ExitCode = 1; Console.Error.WriteLine(ex.Message); }
                 return;
             }
             else if (args[0].Equals("--uninstall", StringComparison.OrdinalIgnoreCase))
@@ -64,7 +83,7 @@ public static class Program
 
                         // 3. Clear Steam shortcuts (pass empty list to delete all ours)
                         int added, removed;
-                        EpicSyncManager.Sync(exePath, new System.Collections.Generic.List<EpicGame>(), out added, out removed);
+                        EpicSyncManager.Sync(exePath, new System.Collections.Generic.List<EpicGame>(), out added, out removed, true);
 
                         // 4. Delete local AppData folder
                         string localAppDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamEpicSync");
@@ -94,15 +113,28 @@ public static class Program
             }
         }
 
+        bool steamSession = args.Length > 0 && args[0] == "--steam-session";
         // GUI/Tray mode: Check for duplicate instance
         bool createdNew;
         appMutex = new System.Threading.Mutex(true, "SteamEpicSync_SingleInstanceMutex_TrayGUI", out createdNew);
         if (!createdNew)
         {
-            MessageBox.Show("Приложение Steam Epic Sync уже запущено и находится в системном трее (в правом нижнем углу экрана рядом с часами).", 
+            if (steamSession)
+            {
+                try { using (var signal = System.Threading.EventWaitHandle.OpenExisting("Local\\SteamEpicSync_Startup")) signal.Set(); } catch { }
+                return;
+            }
+            MessageBox.Show("Приложение Steam Epic Sync уже запущено и находится в системном трее (в правом нижнем углу экрана рядом с часами).",
                 "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
+        var settings = AppSettings.Load();
+        settings.ExePath = exePath;
+        settings.Save();
+        startupEvent = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, "Local\\SteamEpicSync_Startup");
+        var listener = new System.Threading.Thread(() => { while (true) { startupEvent.WaitOne(); RequestStartupSync(); } });
+        listener.IsBackground = true;
+        listener.Start();
 
         // Default: Start System Tray Application
         trayApp = new TrayApplication(
@@ -110,29 +142,34 @@ public static class Program
             TriggerSyncNow,
             ShowDashboard,
             IsRunOnStartup,
-            SetRunOnStartup
+            SetRunOnStartup,
+            steamSession
         );
 
-        // Run initial silent sync in background
-        System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-        {
-            try
-            {
-                var games = EpicSyncManager.FindInstalledGames();
-                int added, removed;
-                EpicSyncManager.Sync(exePath, games, out added, out removed);
-                if (added > 0 || removed > 0)
-                {
-                    ShowTrayBalloon("Авто-синхронизация", 
-                        string.Format("Библиотека синхронизирована. Добавлено: {0}, Удалено: {1}.\nПожалуйста, перезапустите Steam.", added, removed),
-                        ToolTipIcon.Info);
-                }
-            }
-            catch { }
-        });
-
         // Run application message loop
+        if (steamSession) RequestStartupSync();
+        else ShowDashboard();
         Application.Run(trayApp);
+    }
+
+    private static void RequestStartupSync()
+    {
+        int steamPid = SteamSession.CurrentSteamPid();
+        if (steamPid != 0 && System.Threading.Interlocked.Exchange(ref startupSteamPid, steamPid) == steamPid) return;
+        var settings = AppSettings.Load();
+        if (SteamSession.ConsumeStartupSkip() || !settings.SyncOnSteamStart)
+        {
+            if (!settings.LaunchWithSteam) Environment.Exit(0);
+            return;
+        }
+        System.Threading.ThreadPool.QueueUserWorkItem(_ => {
+            try {
+                int added, removed;
+                SteamSession.Synchronize(exePath, new EpicApiManager(), out added, out removed);
+                ShowTrayBalloon("Синхронизация при запуске", "Библиотека обновлена. Steam запущен снова.");
+            } catch (Exception ex) { ShowTrayBalloon("Ошибка синхронизации", ex.Message, ToolTipIcon.Error); }
+            finally { if (!AppSettings.Load().LaunchWithSteam) Environment.Exit(0); }
+        });
     }
 
     public static void ShowDashboard()
@@ -151,12 +188,13 @@ public static class Program
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show("Ошибка запуска панели: " + ex.Message, "Ошибка", 
+                System.Windows.MessageBox.Show("Ошибка запуска панели: " + ex.Message, "Ошибка",
                     System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                 return;
             }
         }
 
+        controller.RefreshSettings();
         controller.Window.Show();
         controller.Window.Activate();
         controller.RefreshData();
@@ -174,11 +212,10 @@ public static class Program
             {
                 try
                 {
-                    var games = EpicSyncManager.FindInstalledGames();
                     int added, removed;
-                    EpicSyncManager.Sync(exePath, games, out added, out removed);
-                    ShowTrayBalloon("Синхронизация успешна", 
-                        string.Format("Синхронизировано игр: {0}.\nПожалуйста, перезапустите Steam, если он запущен.", games.Count),
+                    SteamSession.Synchronize(exePath, new EpicApiManager(), out added, out removed);
+                    ShowTrayBalloon("Синхронизация успешна",
+                        string.Format("Добавлено игр: {0}. Библиотека обновлена.", added),
                         ToolTipIcon.Info);
                 }
                 catch (Exception ex)
@@ -273,19 +310,4 @@ public static class Program
         catch { }
     }
 
-    private static void SetBrowserEmulationKey()
-    {
-        try
-        {
-            string fileName = Path.GetFileName(exePath);
-            using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_BROWSER_EMULATION"))
-            {
-                if (key != null)
-                {
-                    key.SetValue(fileName, 11001, RegistryValueKind.DWord);
-                }
-            }
-        }
-        catch { }
-    }
 }
