@@ -23,6 +23,14 @@ if (Test-Path $cscPath64) {
 
 Write-Host "Using compiler: $csc"
 Write-Host "WPF Lib: $wpfLib"
+
+$running = Get-Process -Name "SteamEpicSync" -ErrorAction SilentlyContinue
+if ($running) {
+    Write-Host "Closing running SteamEpicSync process (PID: $($running.Id))..."
+    $running | Stop-Process -Force
+    Start-Sleep -Milliseconds 500
+}
+
 Write-Host "Compiling..."
 
 & $csc /target:winexe /out:SteamEpicSync.exe /lib:$wpfLib /r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xaml.dll /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /r:System.Security.dll /r:System.Web.Extensions.dll /resource:MainWindow.xaml Program.cs VdfParser.cs EpicSyncManager.cs GameLauncher.cs TrayApplication.cs MainWindow.xaml.cs EpicApiManager.cs LoginWindow.cs SteamArtwork.cs SteamCollection.cs SteamUiSnapshot.cs SteamStoreMatcher.cs AppSettings.cs SteamSession.cs SteamBootstrap.cs
